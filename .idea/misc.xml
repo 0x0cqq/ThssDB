@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="ANTLRGenerationPreferences">
+    <option name="perGrammarGenerationSettings">
+      <list>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/src/main/java/cn/edu/thssdb/parser/SQL.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="C:\Users\chenqq\Downloads\大作业2022\ThssDB\src\main\java\cn\edu\thssdb\parser" />
+          <option name="libDir" value="" />
+          <option name="encoding" value="UTF-8" />
+          <option name="pkg" value="cn.edu.thssdb.parser" />
+          <option name="language" value="" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+      </list>
+    </option>
+  </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="MavenProjectsManager">
     <option name="originalFiles">
