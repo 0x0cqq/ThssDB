@@ -13,6 +13,7 @@ import cn.edu.thssdb.type.ColumnType;
 
 import java.util.ArrayList;
 import java.util.List;
+
 /**
  * When use SQL sentence, e.g., "SELECT avg(A) FROM TableX;"
  * the parser will generate a grammar tree according to the rules defined in SQL.g4.
@@ -234,4 +235,17 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         }
         return "Quit.";
     }
+    @Override
+    public Object visitParse(SQLParser.ParseContext ctx) {
+        return visitSql_stmt_list(ctx.sql_stmt_list());
+    }
+
+    @Override
+    public Object visitSql_stmt_list(SQLParser.Sql_stmt_listContext ctx) {
+        ArrayList<QueryResult> ret = new ArrayList<>();
+        for (SQLParser.Sql_stmtContext subCtx : ctx.sql_stmt()) ret.add(visitSql_stmt(subCtx));
+        return ret;
+    }
 }
+
+
