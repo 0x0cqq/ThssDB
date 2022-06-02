@@ -7,7 +7,12 @@ import cn.edu.thssdb.exception.DatabaseNotExistException;
 import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
+import cn.edu.thssdb.schema.Table;
+import cn.edu.thssdb.schema.Column;
+import cn.edu.thssdb.type.ColumnType;
 
+import java.util.ArrayList;
+import java.util.List;
 /**
  * When use SQL sentence, e.g., "SELECT avg(A) FROM TableX;"
  * the parser will generate a grammar tree according to the rules defined in SQL.g4.
@@ -109,11 +114,66 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     }
 
     /**
-     * TODO
+     * Finished
      创建表格
      */
     @Override
-    public String visitCreate_table_stmt(SQLParser.Create_table_stmtContext ctx) {return null;}
+    public String visitCreate_table_stmt(SQLParser.Create_table_stmtContext ctx) {
+        try {
+            String tableName = ctx.table_name().getText().toLowerCase();
+            ArrayList<Column> columnList = new ArrayList<>();
+            //获取columnItem，组成columnList
+            for(int i = 0; i < ctx.column_def().size();i++){
+                SQLParser.Column_defContext columnDefItem = ctx.column_def(i);
+                String columnName = columnDefItem.column_name().getText().toLowerCase();
+
+                String typeName = columnDefItem.type_name().getChild(0).getText().toUpperCase();
+                ColumnType columntype = ColumnType.valueOf(typeName);
+                //如果是String类型，获取maxLength
+                int maxLength = 0;
+                if(columnDefItem.type_name().getChildCount()>1){
+                    maxLength = Integer.valueOf(columnDefItem.type_name().getChild(2).getText()).intValue();
+                }
+                boolean notNull = false;
+                int primary = 0;
+                for(int j = 0 ; j < columnDefItem.column_constraint().size();j++){
+                    if(columnDefItem.column_constraint(j).getChild(1).getText().equalsIgnoreCase("NULL")){
+                        notNull = true;
+                    }
+                    else if(columnDefItem.column_constraint(j).getChild(1).getText().equalsIgnoreCase("KEY")){
+                        primary = 1;
+                    }
+                }
+                //maxLength:限制每个值存储的长度，暂时设置为30，可能会修正
+                Column column = new Column(columnName,columntype,primary,notNull,maxLength);
+                columnList.add(column);
+            }
+            //更新主键对应column的notNull值
+            for(int i = 0;i < columnList.size();i++){
+                if(columnList.get(i).isPrimary()){
+                    columnList.get(i).setNotNull(true);
+                }
+            }
+            //获取Table constraints，将对应列设置为primary与notNull
+            for(int i = 0;i<ctx.table_constraint().column_name().size();i++){
+                String primary_column = ctx.table_constraint().column_name(i).getText();
+                for(int j = 0;j<columnList.size();j++){
+                    Column column = columnList.get(j);
+                    if(primary_column.equalsIgnoreCase(column.getColumnName())){
+                        column.setPrimary(1);
+                        column.setNotNull(true);
+                    }
+                }
+            }
+            //从ArrayList传到数组里
+            Column[] columns = columnList.toArray(new Column[0]);
+            //建表
+            this.manager.getCurrentDatabase().create(tableName,columns);
+        }catch(Exception e){
+            return e.getMessage();
+        }
+        return "Create table" + ctx.table_name() + ".";
+    }
 
     /**
      * TODO
@@ -141,8 +201,27 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      表格项查询
      */
     @Override
-    public QueryResult visitSelect_stmt(SQLParser.Select_stmtContext ctx) {return null;}
+    public QueryResult visitSelect_stmt(SQLParser.Select_stmtContext ctx) {
+        return null;
+    }
 
+    /**
+     * Finished
+     展示表 SHOW TABLE tableName
+     */
+    @Override
+    public String visitShow_meta_stmt(SQLParser.Show_meta_stmtContext ctx){
+        String str;
+        try{
+            String tableName = ctx.table_name().getText();
+            Table table = manager.getCurrentDatabase().get(tableName);
+            str = table.toString();
+        }
+        catch(Exception e){
+            return e.getMessage();
+        }
+        return str;
+    }
     /**
      退出
      */
