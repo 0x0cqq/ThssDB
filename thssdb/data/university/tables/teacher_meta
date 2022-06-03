@@ -1,0 +1,4 @@
+teacher_id,INT,1,true,0
+name,STRING,0,false,30
+department,STRING,0,false,30
+salary,INT,0,false,0

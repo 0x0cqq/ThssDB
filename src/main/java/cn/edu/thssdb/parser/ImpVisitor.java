@@ -3,16 +3,19 @@ package cn.edu.thssdb.parser;
 
 // TODO: add logic for some important cases, refer to given implementations and SQLBaseVisitor.java for structures
 
-import cn.edu.thssdb.exception.DatabaseNotExistException;
+import cn.edu.thssdb.common.Global;
+import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
 import cn.edu.thssdb.schema.Table;
 import cn.edu.thssdb.schema.Column;
+import cn.edu.thssdb.schema.Row;
+import cn.edu.thssdb.schema.Cell;
 import cn.edu.thssdb.type.ColumnType;
 
+
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * When use SQL sentence, e.g., "SELECT avg(A) FROM TableX;"
@@ -115,12 +118,15 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     }
 
     /**
-     * Finished
+     * Finished and Tested
      创建表格
      */
     @Override
     public String visitCreate_table_stmt(SQLParser.Create_table_stmtContext ctx) {
         try {
+            if(manager.currentDatabase == null){
+                throw new DatabaseNotExistException();
+            }
             String tableName = ctx.table_name().getText().toLowerCase();
             ArrayList<Column> columnList = new ArrayList<>();
             //获取columnItem，组成columnList
@@ -133,7 +139,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 //如果是String类型，获取maxLength
                 int maxLength = 0;
                 if(columnDefItem.type_name().getChildCount()>1){
-                    maxLength = Integer.valueOf(columnDefItem.type_name().getChild(2).getText()).intValue();
+                    maxLength = Integer.parseInt(columnDefItem.type_name().getChild(2).getText());
                 }
                 boolean notNull = false;
                 int primary = 0;
@@ -173,22 +179,155 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         }catch(Exception e){
             return e.getMessage();
         }
-        return "Create table" + ctx.table_name() + ".";
+        //String tableMsg = manager.currentDatabase.get(ctx.table_name().toString()).toString();
+        return "Create table " + ctx.table_name().getText() + ".";
     }
 
     /**
-     * TODO
-     表格项插入
+     * TODO: test
+     * TODO: 目前的问题似乎是我没试出正确的语法？一直报 error--internal error processing executeStatement
+     表格项插入:  K_INSERT K_INTO table_name ( '(' column_name ( ',' column_name )* ')' )?
+     K_VALUES value_entry ( ',' value_entry )* ;
+     Insert_into 的特性同mysql一致，具体如下：
+        *column_name的顺序可以不与表格的顺序一致；
+        *不输入column_name时，value_entry的数量必须与列保持一致，空的列必须显式填充 null
+        *column_name可以不包含所有列
      */
     @Override
-    public String visitInsert_stmt(SQLParser.Insert_stmtContext ctx) {return null;}
+    public String visitInsert_stmt(SQLParser.Insert_stmtContext ctx) {
+        try{
+            String tableName = ctx.table_name().getText();
+            if(manager.currentDatabase == null){
+                throw new DatabaseNotExistException();
+            }
+            if(manager.currentDatabase.get(tableName) == null){
+                throw new TableNotExistException(tableName);
+            }
+            Table table = this.manager.currentDatabase.get(tableName);
+            //获取输入value_entry的字面量
+            ArrayList<String> valueEntryList_str = new ArrayList<>();
+            for(SQLParser.Value_entryContext value_ctx : ctx.value_entry()){
+                String str = value_ctx.getText();
+                valueEntryList_str.add(str);
+            }
+
+            ArrayList<Cell> value_entry = new ArrayList<>();
+            //分类讨论是否指定列
+            if(ctx.column_name()==null){
+                //判断列数是否与table.columns一致会在Table.CheckValidRow中实现
+                //我们只需要根据字面量生成Cell，生成Row
+                for(int i = 0;i<valueEntryList_str.size();i++){
+                    switch(table.columns.get(i).getColumnType().name().toUpperCase()){
+                        case("INT"):{
+                            int num = Integer.parseInt(valueEntryList_str.get(i));
+                            Cell cell = new Cell(num);
+                            value_entry.add(cell);
+                        }
+                        case("LONG"):{
+                            long num = Long.parseLong(valueEntryList_str.get(i));
+                            Cell cell = new Cell(num);
+                            value_entry.add(cell);
+                        }
+                        case("FLOAT"):{
+                            float f = Float.parseFloat(valueEntryList_str.get(i));
+                            Cell cell = new Cell(f);
+                            value_entry.add(cell);
+                        }
+                        case("DOUBLE"):{
+                            double d = Double.parseDouble(valueEntryList_str.get(i));
+                            Cell cell = new Cell(d);
+                            value_entry.add(cell);
+                        }
+                        case("STRING"):{
+                            Cell cell = new Cell(valueEntryList_str.get(i));
+                            value_entry.add(cell);
+                        }
+                        default: throw new ValueFormatInvalidException("column type parser fault");
+                    }
+                }
+            }
+            else{
+                //检查column name与value entry是否匹配
+                if(ctx.column_name().size()!=ctx.value_entry().size()){
+                    int expectedLen = ctx.column_name().size();
+                    int realLen = ctx.value_entry().size();
+                    throw new SchemaLengthMismatchException(expectedLen,realLen,"column name mismatch to value entry");
+                }
+                //检查column name中是否有相同的列
+                for(int i = 0;i<ctx.column_name().size()-1;i++){
+                    for(int j = i+1;j<ctx.column_name().size();j++){
+                        if(ctx.column_name(i).getText().equals(ctx.column_name(j).getText())){
+                            throw new DuplicateKeyException();
+                        }
+                    }
+                }
+
+                //初始化value_entry
+                for(int i = 0;i<table.columns.size();i++){
+                    Cell cell = new Cell(Global.ENTRY_NULL);
+                    value_entry.add(cell);
+                }
+                for(int i = 0;i < ctx.column_name().size();i++){
+                    //找到与column_name对应的列所在的index和type
+                    int index = -1;
+                    String targetType = "null";
+                    for(int j = 0;j<table.columns.size();j++){
+                        if(table.columns.get(j).getColumnName().equalsIgnoreCase(ctx.column_name(i).toString())){
+                            index = j;
+                            targetType = table.columns.get(j).getColumnType().name().toUpperCase();
+                            break;
+                        }
+                    }
+                    if(index < 0){
+                        throw new KeyNotExistException();
+                    }
+                    switch (targetType){
+                        case("INT"):{
+                            int num = Integer.parseInt(valueEntryList_str.get(i));
+                            Cell cell = new Cell(num);
+                            value_entry.set(index,cell);
+                        }
+                        case("LONG"):{
+                            long num = Long.parseLong(valueEntryList_str.get(i));
+                            Cell cell = new Cell(num);
+                            value_entry.set(index,cell);
+                        }
+                        case("FLOAT"):{
+                            float f = Float.parseFloat(valueEntryList_str.get(i));
+                            Cell cell = new Cell(f);
+                            value_entry.set(index,cell);
+                        }
+                        case("DOUBLE"):{
+                            double d = Double.parseDouble(valueEntryList_str.get(i));
+                            Cell cell = new Cell(d);
+                            value_entry.set(index,cell);
+                        }
+                        case("STRING"):{
+                            Cell cell = new Cell(valueEntryList_str.get(i));
+                            value_entry.set(index,cell);
+                        }
+                        default: throw new ValueFormatInvalidException("column type parser fault");
+                    }
+                }
+            }
+            //从value_entry生成row
+            Row rowToInsert = new Row(value_entry);
+            //调用table的接口来插入该行
+            table.insert(rowToInsert);
+        }catch(Exception e){
+            return e.getMessage();
+        }
+        return "Insert into" + ctx.table_name().getText() + "successfully";
+    }
 
     /**
      * TODO
      表格项删除
      */
     @Override
-    public String visitDelete_stmt(SQLParser.Delete_stmtContext ctx) {return null;}
+    public String visitDelete_stmt(SQLParser.Delete_stmtContext ctx) {
+        return "Delete from" + ctx.table_name().getText() + "successfully";
+    }
 
     /**
      * TODO
@@ -207,21 +346,27 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     }
 
     /**
-     * Finished
+     * TODO: bug -- return null?
      展示表 SHOW TABLE tableName
      */
     @Override
     public String visitShow_meta_stmt(SQLParser.Show_meta_stmtContext ctx){
-        String str;
         try{
             String tableName = ctx.table_name().getText();
-            Table table = manager.getCurrentDatabase().get(tableName);
-            str = table.toString();
+            if(manager.currentDatabase==null){
+                throw new DatabaseNotExistException();
+            }
+            if(manager.currentDatabase.get(tableName)==null) {
+                throw new TableNotExistException(tableName);
+            }
+            String SchemaMsg;
+            Table table = manager.currentDatabase.get(tableName);
+            SchemaMsg = table.toString();
+            return SchemaMsg;
         }
         catch(Exception e){
             return e.getMessage();
         }
-        return str;
     }
     /**
      退出
