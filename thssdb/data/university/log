@@ -1,0 +1,87 @@
+begin transaction
+insert into course values(1)
+commit
+begin transaction
+insert into course(id) values(1)
+commit
+begin transaction
+insert into course values(1)
+commit
+begin transaction
+insert into course('id') values(1)
+commit
+begin transaction
+insert into student (id) values (1)
+commit
+begin transaction
+insert into course(id) values(1)
+commit
+begin transaction
+insert into course values 1
+commit
+begin transaction
+insert into course values(1)
+commit
+begin transaction
+insert into student (id,id) values (1,2)
+commit
+begin transaction
+insert into student (id,id,id) values (1,2,3)
+commit
+begin transaction
+insert into student (id,id,id) values(1,1,1)
+commit
+begin transaction
+insert into course (id) values (1)
+commit
+begin transaction
+insert into student (id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student (id) values (1)
+commit
+begin transaction
+insert into student(id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student(id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student(id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student(id,name) values(1,'bob')
+commit
+begin transaction
+insert into student(id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student(id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student(id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student(id,name) values(1,'Bob')
+commit
+begin transaction
+insert into student(id,name,dept) values(2,'Carol','CompSci'),(3,'Cathy','SS')
+commit
+begin transaction
+insert into student values(name,id) values('Dva',4)
+commit
+begin transaction
+insert into student (name,id) values('Dva',4)
+commit
+begin transaction
+insert into student values(4,'Eve','Dpi')
+commit
+begin transaction
+insert into student values(1,'Dave','Math')
+commit
+begin transaction
+insert into student(name,id) values('Dave',4)
+commit
+begin transaction
+insert into student values(5,'Eve','CompSci')
+commit
