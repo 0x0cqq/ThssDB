@@ -67,8 +67,7 @@ public class SQLHandler {
                     manager.currentSessions.remove(session);
                     ArrayList<String> table_list = manager.x_lockDict.get(session);
                     for (String table_name : table_list) {
-                        Table currentTable = currentDB.get(table_name);
-                        currentTable.releaseXLock(session);
+                        currentDB.getTableLockManager().releaseWriteLock(table_name);
                     }
                     table_list.clear();
                     manager.x_lockDict.put(session,table_list);

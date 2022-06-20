@@ -1,6 +1,6 @@
 # ThssDB 开发手册
 
-### 开发环境
+## 开发环境
 
 操作系统：Windows，Linux，macOS
 
@@ -8,7 +8,7 @@ IDE：IntelliJ Idea
 
 项目管理工具：Maven（配置在Idea中）
 
-### 如何编译及运行（IDEA中自测，不保证 minimum 配置）
+## 如何编译及运行（IDEA中自测，不保证 minimum 配置）
 
 1. 配置 Java 环境（JDK，JRE）
 2. 安装 Maven Helper
@@ -23,7 +23,7 @@ IDE：IntelliJ Idea
    2. 运行 Client：`src/main/java/cn.edu.thssb/client/Client.java` 中的 `main` 函数
 
 
-### 开发调试
+## 开发调试
 
 服务端启动在server.ThssDB.main()处启动
 
@@ -35,7 +35,7 @@ IDE：IntelliJ Idea
 
 断开连接使用 `disconnect;`
 
-### 关于 ThssDB 的架构 - RPC 与 Thrift
+## 关于 ThssDB 的架构 - RPC 与 Thrift
 
 参见 [这篇文章](https://notes.cqqqwq.com/programming/thrift/)，阅读这篇文章可以理解整个 ThssDB 系统的底层架构，理解在写项目什么位置的代码。
 
@@ -48,7 +48,7 @@ IDE：IntelliJ Idea
 ThssDB代码框架仅作为参考，可根据需要增加模块和类，鼓励进行系统架构创新与代码重构。
 
 
-#### 任务一：实现十类 SQL 语句
+### 任务一：实现十类 SQL 语句
 
 * 创建数据库
 
@@ -125,7 +125,7 @@ ThssDB代码框架仅作为参考，可根据需要增加模块和类，鼓励�
 
 这一部分在 Client 没有工作
 
-#### 任务二：事务并发与恢复模块
+### 任务二：事务并发与恢复模块
 
 
 实现简单的事务及恢复功能，支持小规模的并发。
@@ -147,13 +147,16 @@ schema/Table 类、schema/Database 类、schema/Manager 类包含属于不同数
 4. 实现 MVCC 协议。
 
 
-实现方法（估测）：
+#### 实现方法：
 
-1 主要就是加锁，了解一下 read committed 级别的加锁方式，了解一下锁的具体使用方式。
+1. 实现 Read Committed 的锁方法：
 
+ReentrantReadWriteLock 类是 Java 默认的读写锁，拥有一个读锁 `.readLock()` 和一个写锁 `.writeLock()`。
 
-2 主要就是写日志的模块和从日志恢复的模块两个功能。
+为了实现 Read Committed 隔离级别，我们对于所有的读操作和写操作都加上对应的锁。对于读操作，在读过后就释放读锁；对于写操作，在 Commit 之后才释放写锁。
 
-任务二可能要等待任务一完成之后才能进行，因此任务一可以先写一个最简单的暴力版本，无脑循环的那种。
+对于加锁的粒度是加在表（Table）上。数据库只有 SELECT 是读操作，其他操作都是写操作。当一个操作进入 Table 类的具体的函数，对表进行加锁操作；调用 table 的函数之前，也要进行锁状态的检查。
 
-这一部分在 Client 也没有工作。
+为了便于管理锁，新建了 schema/LockManager.java 类，用于管理一个 Database 里面所有可能的锁。【这里目前还没有和操作耦合起来】
+
+2. 写日志的模块和从日志恢复的模块两个功能。

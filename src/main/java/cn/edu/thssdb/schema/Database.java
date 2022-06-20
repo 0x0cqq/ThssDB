@@ -20,12 +20,14 @@ public class Database {
 
   private String databaseName;
   private HashMap<String, Table> tableMap;
+  private LockManager tableLockManager;
   ReentrantReadWriteLock lock;
 
   public Database(String databaseName) {
     this.databaseName = databaseName;
     this.tableMap = new HashMap<>();
     this.lock = new ReentrantReadWriteLock();
+    tableLockManager = new LockManager(this);
     File tableFolder = new File(this.getDatabaseTableFolderPath());
     if(!tableFolder.exists())
       tableFolder.mkdirs();
@@ -162,8 +164,9 @@ public class Database {
     return null;
   }
 
-
-
+  public LockManager getTableLockManager(){
+    return this.tableLockManager;
+  }
 
   // Find position
   public String getDatabasePath(){

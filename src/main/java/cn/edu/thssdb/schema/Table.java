@@ -17,22 +17,12 @@ import static cn.edu.thssdb.type.ColumnType.STRING;
 // TODO lock control, variables init.
 
 public class Table implements Iterable<Row> {
-  ReentrantReadWriteLock lock;
+  public ReentrantReadWriteLock lock;
   private String databaseName;
   public String tableName;
   public ArrayList<Column> columns;
   public BPlusTree<Cell, Row> index;
   private int primaryIndex;
-
-  // ADD lock variables for S, X locks and etc here.
-
-  // TODO: table/tuple level locks
-  public Boolean testSLock(Long sessionId){ return false;}
-  public void takeSLock(Long sessionId) {}
-  public void releaseSLock(Long sessionId){}
-  public Boolean testXLock(Long sessionId){ return false;}
-  public Boolean takeXLock(Long sessionId){ return false;} // 在test成功前提下拿X锁。返回值false表示session之前已拥有这个表的X锁。
-  public void releaseXLock(Long sessionId){}
 
 
   // Initiate: Table, recover
@@ -54,8 +44,6 @@ public class Table implements Iterable<Row> {
     }
     if(this.primaryIndex < 0)
       throw new MultiPrimaryKeyException(this.tableName);
-
-    // TODO initiate lock status.
 
     recover();
   }

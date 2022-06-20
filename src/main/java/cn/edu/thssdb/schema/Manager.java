@@ -22,7 +22,6 @@ public class Manager {
   public ArrayList<Long> waitSessions;
   public static SQLHandler sqlHandler;
   public HashMap<Long, ArrayList<String>> x_lockDict;
-
   public static Manager getInstance() {
     return Manager.ManagerHolder.INSTANCE;
   }
@@ -33,6 +32,7 @@ public class Manager {
     currentDatabase = null;
     sqlHandler = new SQLHandler(this);
     x_lockDict = new HashMap<>();
+    currentSessions = new ArrayList<>();
     File managerFolder = new File(Global.DBMS_DIR + File.separator + "data");
     if(!managerFolder.exists())
       managerFolder.mkdirs();
