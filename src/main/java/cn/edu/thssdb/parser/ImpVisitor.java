@@ -5,6 +5,7 @@ package cn.edu.thssdb.parser;
 
 import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.exception.*;
+import cn.edu.thssdb.parser.item.*;
 import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
@@ -13,9 +14,11 @@ import cn.edu.thssdb.schema.Column;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.schema.Cell;
 import cn.edu.thssdb.type.ColumnType;
+import cn.edu.thssdb.type.ComparerType;
 
 
 import java.util.ArrayList;
+import java.util.concurrent.locks.Condition;
 
 /**
  * When use SQL sentence, e.g., "SELECT avg(A) FROM TableX;"
@@ -398,6 +401,67 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         ArrayList<QueryResult> ret = new ArrayList<>();
         for (SQLParser.Sql_stmtContext subCtx : ctx.sql_stmt()) ret.add(visitSql_stmt(subCtx));
         return ret;
+    }
+
+    @Override
+    public ComparerItem visitComparer(SQLParser.ComparerContext ctx){
+        if(ctx.column_full_name()!=null){
+            String tableName = ctx.column_full_name().table_name().getText();
+            String columnName = ctx.column_full_name().column_name().getText();
+            return new ComparerItem(ComparerType.COLUMN,tableName,columnName);
+        }
+        else if(ctx.literal_value()!=null){
+            String literalValue = "null";
+            if(ctx.literal_value().NUMERIC_LITERAL()!=null){
+                literalValue = ctx.literal_value().NUMERIC_LITERAL().getText();
+                return new ComparerItem(ComparerType.NUMBER,literalValue);
+            }
+            else if(ctx.literal_value().STRING_LITERAL()!=null){
+                literalValue = ctx.literal_value().STRING_LITERAL().getText();
+                return new ComparerItem(ComparerType.STRING,literalValue);
+            }
+            return new ComparerItem(ComparerType.NULL,literalValue);
+        }
+        //如果该项为null的话，return null
+        return null;
+    }
+    @Override
+    public ComparerItem visitExpression(SQLParser.ExpressionContext ctx){
+        if(ctx.comparer()!=null){
+            return (ComparerItem) visit(ctx.comparer());
+        }
+        else if (ctx.expression().size()==1){
+            return (ComparerItem) visit(ctx.getChild(1));
+        }
+        else {
+            ComparerItem compItem1 = (ComparerItem) visit(ctx.getChild(0));
+            ComparerItem compItem2 = (ComparerItem) visit(ctx.getChild(2));
+
+            if ((compItem1.type != ComparerType.NUMBER && compItem1.type!=ComparerType.COLUMN) ||
+                    (compItem2.type != ComparerType.NUMBER && compItem2.type!=ComparerType.COLUMN)) {
+                throw new TypeNotMatchException(compItem1.type, ComparerType.NUMBER);
+            }
+
+            return new ComparerItem(compItem1,compItem2,ctx.getChild(1).getText());
+        }
+    }
+
+    @Override
+    public ConditionItem visitCondition(SQLParser.ConditionContext ctx){
+        ComparerItem comparerItem1 = (ComparerItem) visit(ctx.getChild(0));
+        ComparerItem comparerItem2 = (ComparerItem) visit(ctx.getChild(2));
+        return new ConditionItem(comparerItem1,comparerItem2,ctx.getChild(1).getText());
+    }
+
+    @Override
+    public MultipleConditionItem visitMultiple_condition(SQLParser.Multiple_conditionContext ctx){
+        if(ctx.getChildCount() == 1) {
+            return new MultipleConditionItem((ConditionItem) visit(ctx.getChild(0)));
+        }
+
+        MultipleConditionItem m1 = (MultipleConditionItem) visit(ctx.getChild(0));
+        MultipleConditionItem m2 = (MultipleConditionItem) visit(ctx.getChild(2));
+        return new MultipleConditionItem(m1,m2,ctx.getChild(1).getText());
     }
 }
 
