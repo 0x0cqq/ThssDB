@@ -159,15 +159,15 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 columnList.add(column);
             }
             //更新主键对应column的notNull值
-            for(int i = 0;i < columnList.size();i++){
+            for (int i = 0;i < columnList.size();i++){
                 if(columnList.get(i).isPrimary()){
                     columnList.get(i).setNotNull(true);
                 }
             }
             //获取Table constraints，将对应列设置为primary与notNull
-            for(int i = 0;i<ctx.table_constraint().column_name().size();i++){
+            for (int i = 0;i<ctx.table_constraint().column_name().size();i++){
                 String primary_column = ctx.table_constraint().column_name(i).getText();
-                for(int j = 0;j<columnList.size();j++){
+                for (int j = 0;j<columnList.size();j++){
                     Column column = columnList.get(j);
                     if(primary_column.equalsIgnoreCase(column.getColumnName())){
                         column.setPrimary(1);
