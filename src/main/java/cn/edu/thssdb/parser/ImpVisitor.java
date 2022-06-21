@@ -7,6 +7,7 @@ import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.parser.item.*;
 import cn.edu.thssdb.query.QueryResult;
+import cn.edu.thssdb.query.QueryTable;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
 import cn.edu.thssdb.schema.Table;
@@ -352,14 +353,31 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         if (ctx.K_WHERE() == null) {
             return "Exception: ERROR:Delete without where";
         }
-        if (manager.currentSessions.contains(session)) {
-            Table the_table = db.get(table_name);
-            while (true) {
-                if(!manager.waitSessions.contains(session)) {
-                    int get_lock = the_table.
-                }
-            }
+
+        ArrayList<Table> tables = new ArrayList<>();
+        tables.add(table);
+        QueryTable q_table = new QueryTable(tables);
+        while(q_table.hasNext()) {
+
         }
+//        if (manager.currentSessions.contains(session)) {
+//            Table the_table = db.get(table_name);
+//            while (true) {
+//                if(!manager.waitSessions.contains(session)) {
+                    // TODO 加锁
+//                }
+//            }
+//        }
+        try{
+            MultipleConditionItem muti_cond_item = visitMultiple_condition(ctx.multiple_condition());
+
+            table.delete(visitMultiple_condition(ctx.multiple_condition()));
+            table.showTable();
+            return new QueryResult(ctx.multiple_condition().getText());
+        } catch (Exception e) {
+            return e.toString();
+        }
+
         return "Delete from" + ctx.table_name().getText() + "successfully";
     }
 
@@ -480,7 +498,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
         MultipleConditionItem m1 = (MultipleConditionItem) visit(ctx.getChild(0));
         MultipleConditionItem m2 = (MultipleConditionItem) visit(ctx.getChild(2));
-        return new MultipleConditionItem(m1,m2,ctx.getChild(1).getText());
+        return new MultipleConditionItem(m1, m2, ctx.getChild(1).getText());
     }
 }
 

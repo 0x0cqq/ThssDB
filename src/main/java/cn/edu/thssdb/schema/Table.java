@@ -97,6 +97,9 @@ public class Table implements Iterable<Row> {
     }
   }
 
+  public void mdh_delete()
+
+
   public void delete(Row row) {
     try {
       // TODO lock control.
