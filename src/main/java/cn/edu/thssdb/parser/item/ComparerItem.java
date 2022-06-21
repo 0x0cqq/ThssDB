@@ -5,6 +5,8 @@ import cn.edu.thssdb.exception.TypeNotMatchException;
 import cn.edu.thssdb.type.ComparerType;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.schema.Cell;
+
+import java.security.KeyException;
 import java.util.ArrayList;
 
 public class ComparerItem {
@@ -55,19 +57,56 @@ public class ComparerItem {
     }
 
     public Object getValue(Row row,ArrayList<String> ColumnName){
+        try {
+            //System.out.println("enter getValue(row,ColumnNames)");
+            if (type == ComparerType.COLUMN) {
+                //System.out.println("this.columnName = " + columnName);
+                Cell entry = row.getEntries().get(ColumnName.indexOf(this.columnName));
+                if(entry == null){
+                    //System.out.println("ColumnName not exist.");
+                    throw new KeyException();
+                }
+                return entry.value;
+            } else if (type == ComparerType.NUMBER) {
+                if(literalValue.contains(".")){
+                    return Double.parseDouble(literalValue);
+                }
+                else{
+                    return Integer.parseInt(literalValue);
+                }
+            } else if (type == ComparerType.STRING) {
+                return literalValue;
+            }
+            return null;
+        }
+        catch (Exception e){
+            System.out.println("Get Error in ComparerItem.getValue(Row,ArrayList<String>): " + e.getMessage());
+            return null;
+        }
+    }
+
+    public Object getValue(){
         if(type == ComparerType.COLUMN){
-            Cell entry = row.getEntries().get(ColumnName.indexOf(this.columnName));
-            return entry.value;
+            throw new TypeNotMatchException(ComparerType.COLUMN,ComparerType.NUMBER);
         }
         else if(type == ComparerType.NUMBER){
-            return Double.parseDouble(literalValue);
+            if(literalValue.contains(".")){
+                return Double.parseDouble(literalValue);
+            }
+            else{
+                return Integer.parseInt(literalValue);
+            }
         }
         else if(type == ComparerType.STRING){
             return literalValue;
         }
         return null;
     }
-    /** 将当前ComparerItem计算成类型为double的值
+
+
+
+    /** 由于想到了更好的方式，这个函数已经废弃
+     * 将当前ComparerItem计算成类型为double的值
      *  可以主动调用此函数的ComparerItem:
         - hasChild == true
         - type为 NUMBER

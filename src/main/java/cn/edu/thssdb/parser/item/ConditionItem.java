@@ -1,10 +1,12 @@
 package cn.edu.thssdb.parser.item;
 
 import cn.edu.thssdb.exception.IndexExceedLimitException;
+import cn.edu.thssdb.exception.InvalidComparatorException;
 import cn.edu.thssdb.exception.TypeNotMatchException;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.type.ComparerType;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.concurrent.locks.Condition;
 
@@ -37,26 +39,63 @@ public class ConditionItem {
      *
      */
     public Boolean evaluate(Row row,ArrayList<String> columnName){
-        if(expr1.hasChild || expr2.hasChild){
-            double value1 = expr1.Calculate(row,columnName);
-            double value2 = expr2.Calculate(row,columnName);
-            return (value1 == value2);
-        }
-        else{
-            Object value1 = expr1.getValue(row,columnName);
-            Object value2 = expr2.getValue(row,columnName);
+        try {
+            int compareResult = 0;
 
-            if(!value1.getClass().toString().equals(value2.getClass().toString())){
-                throw new TypeNotMatchException(ComparerType.NUMBER,ComparerType.STRING);
+            Object value1 = expr1.getValue(row, columnName);
+            //System.out.println("value1 = " + value1.getClass().toString() + " " + value1);
+            Object value2 = expr2.getValue(row, columnName);
+            //System.out.println("value2 = " + value2.getClass().toString() + " " + value2);
+
+            //先处理一方为null的情况
+            if(value1 == null || value2 ==null){
+                if(comparator.equals("==")){
+                    return value1 == value2;
+                }
+                else if(comparator.equals("<>")){
+                    return value1 != value2;
+                }
+                else{
+                    throw new InvalidComparatorException(comparator);
+                }
             }
 
-            if(value1.getClass().toString().equalsIgnoreCase("string")){
-                return (value1.equals(value2));
+            //两者都不为null
+            boolean isString1 = value1 instanceof String;
+            boolean isString2 = value2 instanceof String;
+            if ((isString1 && !isString2) || (!isString1 && isString2)) {
+                throw new TypeNotMatchException(ComparerType.NUMBER, ComparerType.STRING);
             }
-            else if(value1.getClass().toString().equalsIgnoreCase("double")){
-                return (value1 == value2);
+
+            //存在Double无法和Integer转换的问题，所以单独讨论Number的部分（坑死了）
+            if(value1 instanceof Integer || value1 instanceof Double){
+                Double newValue1 = Double.valueOf(value1.toString());
+                Double newValue2 = Double.valueOf(value2.toString());
+                compareResult = newValue1.compareTo(newValue2);
             }
+            else{
+                String newValue1 = value1.toString();
+                String newValue2 = value2.toString();
+                compareResult =newValue1.compareTo(newValue2);
+            }
+
+            boolean result=false;
+            switch (comparator){
+                case ">":  result = compareResult>0;break;
+                case "<":  result = compareResult<0;break;
+                case ">=": result = compareResult>=0;break;
+                case "<=": result = compareResult<=0;break;
+                case "=": result = compareResult==0;break;
+                case "<>": result = compareResult!=0;break;
+                default: throw new InvalidComparatorException(comparator);
+            }
+            System.out.println(result);
+            return result;
         }
-        return null;
+        catch(Exception e){
+            System.out.println("Get Error in ConditionItem.evaluate()\n"+e.getMessage());
+            return null;
+        }
     }
+
 }

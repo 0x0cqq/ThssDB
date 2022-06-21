@@ -85,3 +85,169 @@ commit
 begin transaction
 insert into student values(5,'Eve','CompSci')
 commit
+begin transaction
+update student set dept = "SS" where id > 3
+commit
+begin transaction
+update student set dept = 'SS' where id > 3
+commit
+begin transaction
+update student set dept = 'SS' where id > 3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where ID>3
+commit
+begin transaction
+update student set dept = 'SS' where ID>3
+commit
+begin transaction
+update student set dept = 'SS' where ID>3
+commit
+begin transaction
+update student set dept = 'SS' where ID>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where ID>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where ID>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+update student set dept = 'SS' where id>3
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set id = 6 where dept = 'SS'
+commit
+begin transaction
+update student set id = 6 where dept == 'SS'
+commit
+begin transaction
+update student set id=6 where dept=='SS'
+commit
+begin transaction
+update student set id=6 where dept=='SS'
+commit
+begin transaction
+update student set id=6 where dept=='SS'
+commit
+begin transaction
+update student set dept = 'SS' where id>3
+commit
+begin transaction
+update student set id= 6 where dept='CompSci'
+commit
+begin transaction
+update student set id = 6 where dept='SS'
+commit
+begin transaction
+update student set id = 6 where dept='CompSci'
+commit
+begin transaction
+update student set id=2 where name='Carol' and dept='CompSci'
+commit
+begin transaction
+update student set dept='Finance' where name='Eve' or id=4
+commit
+begin transaction
+update student set dept='CompSci'
+commit
+begin transaction
+update student set dept='Math' where id+3<4+1
+commit
+begin transaction
+update student set dept='Math' where id<4+1
+commit
+begin transaction
+update student set dept='Math' where id<1+1
+commit
+begin transaction
+update student set dept='Math' where id<1+1
+commit
+begin transaction
+update student set dept='Math' where id<1+1
+commit
+begin transaction
+update student set dept='Math' where id+1<1+2
+commit
+begin transaction
+update student set dept = 'Finance' where id=2
+commit

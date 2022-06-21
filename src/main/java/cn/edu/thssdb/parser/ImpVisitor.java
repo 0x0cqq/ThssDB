@@ -18,6 +18,7 @@ import cn.edu.thssdb.type.ComparerType;
 
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.concurrent.locks.Condition;
 
 /**
@@ -350,7 +351,67 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      表格项更新
      */
     @Override
-    public String visitUpdate_stmt(SQLParser.Update_stmtContext ctx) {return null;}
+    public String visitUpdate_stmt(SQLParser.Update_stmtContext ctx) {
+        String tableName = ctx.table_name().getText();
+        Table table = manager.currentDatabase.get(tableName);
+        String columnName = ctx.column_name().getText();
+
+        //获取columnNames
+        ArrayList<String> columnNames = new ArrayList<>();
+        ArrayList<Column> columns = table.columns;
+        for (Column c:columns) {
+            columnNames.add(c.getColumnName());
+        }
+
+        //获取满足条件的行
+        MultipleConditionItem whereItem = null;
+        ArrayList<Row> rowToUpdate = new ArrayList<>();
+        if(ctx.multiple_condition()!=null){
+            whereItem = visitMultiple_condition(ctx.multiple_condition());
+        }
+
+        Iterator<Row> rowIterator = table.iterator();
+        if(whereItem==null){
+            while(rowIterator.hasNext()){
+                Row row = rowIterator.next();
+                rowToUpdate.add(row);
+            }
+        }
+        else{
+            while(rowIterator.hasNext()){
+                Row row = rowIterator.next();
+                if (whereItem.evaluate(row,columnNames)){
+                    rowToUpdate.add(row);
+                }
+            }
+        }
+
+        //对这些行进行更新
+        int index = table.Column2Index(columnName);
+        ComparerItem expr = visitExpression(ctx.expression());
+        Cell newCell = new Cell((Comparable) expr.getValue());
+        for(Row row:rowToUpdate){
+            Row newRow = new Row();
+            ArrayList<Cell> entries = row.getEntries();
+            for(int i = 0;i< entries.size();i++){
+                if(i==index){
+                    newRow.getEntries().add(newCell);
+                }
+                else{
+                    newRow.getEntries().add(entries.get(i));
+                }
+            }
+            Cell primaryCell = entries.get(table.getPrimaryIndex());
+            //System.out.println("primaryCell = " + primaryCell.toString());
+            //System.out.println("oldRow = " + row.toString());
+            //System.out.println("newRow = " + newRow.toString());
+
+            table.update(primaryCell,newRow);
+        }
+        table.persist();
+
+        return "Update " + rowToUpdate.size() + " rows";
+    }
 
     /**
      * TODO
@@ -372,7 +433,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             if(manager.currentDatabase==null){
                 throw new DatabaseNotExistException();
             }
-            String tableName = ctx.table_name().getText();
+            String tableName = ctx.table_name().IDENTIFIER().getText();
             return manager.currentDatabase.get(tableName).toString();
         }
         catch(Exception e){
@@ -406,8 +467,11 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     @Override
     public ComparerItem visitComparer(SQLParser.ComparerContext ctx){
         if(ctx.column_full_name()!=null){
-            String tableName = ctx.column_full_name().table_name().getText();
-            String columnName = ctx.column_full_name().column_name().getText();
+            String tableName = null;
+            if(ctx.column_full_name().table_name() != null){
+                tableName = ctx.column_full_name().table_name().IDENTIFIER().getText();
+            }
+            String columnName = ctx.column_full_name().column_name().IDENTIFIER().getText();
             return new ComparerItem(ComparerType.COLUMN,tableName,columnName);
         }
         else if(ctx.literal_value()!=null){
@@ -442,7 +506,30 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 throw new TypeNotMatchException(compItem1.type, ComparerType.NUMBER);
             }
 
-            return new ComparerItem(compItem1,compItem2,ctx.getChild(1).getText());
+            String newLiteralValue;
+
+            Double itemValue1 = Double.parseDouble(compItem1.literalValue);
+            Double itemValue2 = Double.parseDouble(compItem2.literalValue);
+            Double newValue=0.0;
+            String op = ctx.getChild(1).getText();
+            switch(op){
+                case "+": newValue = itemValue1+itemValue2;break;
+                case "-": newValue = itemValue1-itemValue2;break;
+                case "*": newValue = itemValue1*itemValue2;break;
+                case "/": newValue = itemValue1/itemValue2;break;
+                default:
+            }
+            if(newValue.intValue() == newValue.doubleValue()){
+                newLiteralValue=String.valueOf(newValue.intValue());
+            }
+            else{
+                newLiteralValue = newValue.toString();
+            }
+            ComparerItem newComparerItem = new ComparerItem(compItem1,compItem2,ctx.getChild(1).getText());
+            newComparerItem.literalValue=newLiteralValue;
+            newComparerItem.type = ComparerType.NUMBER;
+
+            return newComparerItem;
         }
     }
 
