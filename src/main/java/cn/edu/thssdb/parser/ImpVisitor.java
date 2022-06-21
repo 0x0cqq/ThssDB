@@ -5,6 +5,7 @@ package cn.edu.thssdb.parser;
 
 import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.exception.*;
+import cn.edu.thssdb.parser.item.*;
 import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
@@ -13,9 +14,11 @@ import cn.edu.thssdb.schema.Column;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.schema.Cell;
 import cn.edu.thssdb.type.ColumnType;
+import cn.edu.thssdb.type.ComparerType;
 
 
 import java.util.ArrayList;
+import java.util.concurrent.locks.Condition;
 
 /**
  * When use SQL sentence, e.g., "SELECT avg(A) FROM TableX;"
@@ -175,23 +178,22 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             //从ArrayList传到数组里
             Column[] columns = columnList.toArray(new Column[0]);
             //建表
-            this.manager.getCurrentDatabase().create(tableName,columns);
+            manager.currentDatabase.create(tableName,columns);
         }catch(Exception e){
             return e.getMessage();
         }
-        //String tableMsg = manager.currentDatabase.get(ctx.table_name().toString()).toString();
         return "Create table " + ctx.table_name().getText() + ".";
     }
 
     /**
-     * TODO: test
-     * TODO: 目前的问题似乎是我没试出正确的语法？一直报 error--internal error processing executeStatement
+     * Finished and Tested
      表格项插入:  K_INSERT K_INTO table_name ( '(' column_name ( ',' column_name )* ')' )?
      K_VALUES value_entry ( ',' value_entry )* ;
      Insert_into 的特性同mysql一致，具体如下：
         *column_name的顺序可以不与表格的顺序一致；
         *不输入column_name时，value_entry的数量必须与列保持一致，空的列必须显式填充 null
         *column_name可以不包含所有列
+     Attention:目前直接写入磁盘，见函数末 table.persist();
      */
     @Override
     public String visitInsert_stmt(SQLParser.Insert_stmtContext ctx) {
@@ -200,124 +202,138 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             if(manager.currentDatabase == null){
                 throw new DatabaseNotExistException();
             }
-            if(manager.currentDatabase.get(tableName) == null){
-                throw new TableNotExistException(tableName);
-            }
             Table table = this.manager.currentDatabase.get(tableName);
             //获取输入value_entry的字面量
-            ArrayList<String> valueEntryList_str = new ArrayList<>();
-            for(SQLParser.Value_entryContext value_ctx : ctx.value_entry()){
-                String str = value_ctx.getText();
-                valueEntryList_str.add(str);
+            ArrayList<ArrayList<String>> valueEntryList_str_List = new ArrayList<>();
+            for(SQLParser.Value_entryContext value_entry_ctx: ctx.value_entry()){
+                ArrayList<String> strArray = new ArrayList<>();
+                for(SQLParser.Literal_valueContext literal_value_ctx: value_entry_ctx.literal_value()){
+                    String str = literal_value_ctx.getText();
+                    strArray.add(str);
+                }
+                valueEntryList_str_List.add(strArray);
             }
 
-            ArrayList<Cell> value_entry = new ArrayList<>();
-            //分类讨论是否指定列
-            if(ctx.column_name()==null){
-                //判断列数是否与table.columns一致会在Table.CheckValidRow中实现
-                //我们只需要根据字面量生成Cell，生成Row
-                for(int i = 0;i<valueEntryList_str.size();i++){
-                    switch(table.columns.get(i).getColumnType().name().toUpperCase()){
-                        case("INT"):{
-                            int num = Integer.parseInt(valueEntryList_str.get(i));
-                            Cell cell = new Cell(num);
-                            value_entry.add(cell);
+            for(ArrayList<String> valueEntryList_str:valueEntryList_str_List){
+                ArrayList<Cell> value_entry = new ArrayList<>();
+                //分类讨论是否指定列
+                if(ctx.column_name().size()==0){
+                    //判断列数是否与table.columns一致会在Table.CheckValidRow中实现
+                    //我们只需要根据字面量生成Cell，生成Row
+                    for(int i = 0;i<valueEntryList_str.size();i++){
+                        String columnType = table.columns.get(i).getColumnType().name().toUpperCase();
+                        switch(columnType){
+                            case "INT":{
+                                int num = Integer.parseInt(valueEntryList_str.get(i));
+                                Cell cell = new Cell(num);
+                                value_entry.add(cell);
+                                break;
+                            }
+                            case "LONG":{
+                                long num = Long.parseLong(valueEntryList_str.get(i));
+                                Cell cell = new Cell(num);
+                                value_entry.add(cell);
+                                break;
+                            }
+                            case "FLOAT":{
+                                float f = Float.parseFloat(valueEntryList_str.get(i));
+                                Cell cell = new Cell(f);
+                                value_entry.add(cell);
+                                break;
+                            }
+                            case "DOUBLE":{
+                                double d = Double.parseDouble(valueEntryList_str.get(i));
+                                Cell cell = new Cell(d);
+                                value_entry.add(cell);
+                                break;
+                            }
+                            case "STRING":{
+                                Cell cell = new Cell(valueEntryList_str.get(i));
+                                value_entry.add(cell);
+                                break;
+                            }
+                            default: throw new ValueFormatInvalidException(". column type parser fault");
                         }
-                        case("LONG"):{
-                            long num = Long.parseLong(valueEntryList_str.get(i));
-                            Cell cell = new Cell(num);
-                            value_entry.add(cell);
-                        }
-                        case("FLOAT"):{
-                            float f = Float.parseFloat(valueEntryList_str.get(i));
-                            Cell cell = new Cell(f);
-                            value_entry.add(cell);
-                        }
-                        case("DOUBLE"):{
-                            double d = Double.parseDouble(valueEntryList_str.get(i));
-                            Cell cell = new Cell(d);
-                            value_entry.add(cell);
-                        }
-                        case("STRING"):{
-                            Cell cell = new Cell(valueEntryList_str.get(i));
-                            value_entry.add(cell);
-                        }
-                        default: throw new ValueFormatInvalidException("column type parser fault");
                     }
                 }
+                else{
+                    //检查column name与value entry是否匹配
+                    if(ctx.column_name().size()!=valueEntryList_str.size()){
+                        int expectedLen = ctx.column_name().size();
+                        int realLen = valueEntryList_str.size();
+                        throw new SchemaLengthMismatchException(expectedLen,realLen," column name mismatch to value entry.");
+                    }
+                    //检查column name中是否有相同的列
+                    for(int i = 0;i<ctx.column_name().size()-1;i++){
+                        for(int j = i+1;j<ctx.column_name().size();j++){
+                            if(ctx.column_name(i).getText().equals(ctx.column_name(j).getText())){
+                                throw new DuplicateKeyException();
+                            }
+                        }
+                    }
+                    //初始化value_entry
+                    for(int i = 0;i<table.columns.size();i++){
+                        Cell cell = new Cell(Global.ENTRY_NULL);
+                        value_entry.add(cell);
+                    }
+                    for(int i = 0;i < ctx.column_name().size();i++){
+                        //找到与column_name对应的列所在的index和type
+                        int index = -1;
+                        String targetType = "null";
+                        for(int j = 0;j<table.columns.size();j++){
+                            if(table.columns.get(j).getColumnName().equalsIgnoreCase(ctx.column_name(i).getText())){
+                                index = j;
+                                targetType = table.columns.get(j).getColumnType().name().toUpperCase();
+                                break;
+                            }
+                        }
+                        if(index < 0){
+                            throw new KeyNotExistException();
+                        }
+                        switch (targetType){
+                            case "INT":{
+                                int num = Integer.parseInt(valueEntryList_str.get(i));
+                                Cell cell = new Cell(num);
+                                value_entry.set(index,cell);
+                                break;
+                            }
+                            case "LONG":{
+                                long num = Long.parseLong(valueEntryList_str.get(i));
+                                Cell cell = new Cell(num);
+                                value_entry.set(index,cell);
+                                break;
+                            }
+                            case "FLOAT":{
+                                float f = Float.parseFloat(valueEntryList_str.get(i));
+                                Cell cell = new Cell(f);
+                                value_entry.set(index,cell);
+                                break;
+                            }
+                            case "DOUBLE":{
+                                double d = Double.parseDouble(valueEntryList_str.get(i));
+                                Cell cell = new Cell(d);
+                                value_entry.set(index,cell);
+                                break;
+                            }
+                            case "STRING":{
+                                Cell cell = new Cell(valueEntryList_str.get(i));
+                                value_entry.set(index,cell);
+                                break;
+                            }
+                            default: throw new ValueFormatInvalidException(". Target type is "+targetType);
+                        }
+                    }
+                }
+                //从value_entry生成row
+                Row rowToInsert = new Row(value_entry);
+                //调用table的接口来插入该行
+                table.insert(rowToInsert);
+                table.persist();
             }
-            else{
-                //检查column name与value entry是否匹配
-                if(ctx.column_name().size()!=ctx.value_entry().size()){
-                    int expectedLen = ctx.column_name().size();
-                    int realLen = ctx.value_entry().size();
-                    throw new SchemaLengthMismatchException(expectedLen,realLen,"column name mismatch to value entry");
-                }
-                //检查column name中是否有相同的列
-                for(int i = 0;i<ctx.column_name().size()-1;i++){
-                    for(int j = i+1;j<ctx.column_name().size();j++){
-                        if(ctx.column_name(i).getText().equals(ctx.column_name(j).getText())){
-                            throw new DuplicateKeyException();
-                        }
-                    }
-                }
-
-                //初始化value_entry
-                for(int i = 0;i<table.columns.size();i++){
-                    Cell cell = new Cell(Global.ENTRY_NULL);
-                    value_entry.add(cell);
-                }
-                for(int i = 0;i < ctx.column_name().size();i++){
-                    //找到与column_name对应的列所在的index和type
-                    int index = -1;
-                    String targetType = "null";
-                    for(int j = 0;j<table.columns.size();j++){
-                        if(table.columns.get(j).getColumnName().equalsIgnoreCase(ctx.column_name(i).toString())){
-                            index = j;
-                            targetType = table.columns.get(j).getColumnType().name().toUpperCase();
-                            break;
-                        }
-                    }
-                    if(index < 0){
-                        throw new KeyNotExistException();
-                    }
-                    switch (targetType){
-                        case("INT"):{
-                            int num = Integer.parseInt(valueEntryList_str.get(i));
-                            Cell cell = new Cell(num);
-                            value_entry.set(index,cell);
-                        }
-                        case("LONG"):{
-                            long num = Long.parseLong(valueEntryList_str.get(i));
-                            Cell cell = new Cell(num);
-                            value_entry.set(index,cell);
-                        }
-                        case("FLOAT"):{
-                            float f = Float.parseFloat(valueEntryList_str.get(i));
-                            Cell cell = new Cell(f);
-                            value_entry.set(index,cell);
-                        }
-                        case("DOUBLE"):{
-                            double d = Double.parseDouble(valueEntryList_str.get(i));
-                            Cell cell = new Cell(d);
-                            value_entry.set(index,cell);
-                        }
-                        case("STRING"):{
-                            Cell cell = new Cell(valueEntryList_str.get(i));
-                            value_entry.set(index,cell);
-                        }
-                        default: throw new ValueFormatInvalidException("column type parser fault");
-                    }
-                }
-            }
-            //从value_entry生成row
-            Row rowToInsert = new Row(value_entry);
-            //调用table的接口来插入该行
-            table.insert(rowToInsert);
         }catch(Exception e){
             return e.getMessage();
         }
-        return "Insert into" + ctx.table_name().getText() + "successfully";
+        return "Insert into " + ctx.table_name().getText() + " successfully";
     }
 
     /**
@@ -347,22 +363,17 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
     /**
      * TODO: bug -- return null?
+     * TODO: 猜测的问题是可能没进到语句的处理没进到这个函数
      展示表 SHOW TABLE tableName
      */
     @Override
     public String visitShow_meta_stmt(SQLParser.Show_meta_stmtContext ctx){
         try{
-            String tableName = ctx.table_name().getText();
             if(manager.currentDatabase==null){
                 throw new DatabaseNotExistException();
             }
-            if(manager.currentDatabase.get(tableName)==null) {
-                throw new TableNotExistException(tableName);
-            }
-            String SchemaMsg;
-            Table table = manager.currentDatabase.get(tableName);
-            SchemaMsg = table.toString();
-            return SchemaMsg;
+            String tableName = ctx.table_name().getText();
+            return manager.currentDatabase.get(tableName).toString();
         }
         catch(Exception e){
             return e.getMessage();
@@ -390,6 +401,67 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         ArrayList<QueryResult> ret = new ArrayList<>();
         for (SQLParser.Sql_stmtContext subCtx : ctx.sql_stmt()) ret.add(visitSql_stmt(subCtx));
         return ret;
+    }
+
+    @Override
+    public ComparerItem visitComparer(SQLParser.ComparerContext ctx){
+        if(ctx.column_full_name()!=null){
+            String tableName = ctx.column_full_name().table_name().getText();
+            String columnName = ctx.column_full_name().column_name().getText();
+            return new ComparerItem(ComparerType.COLUMN,tableName,columnName);
+        }
+        else if(ctx.literal_value()!=null){
+            String literalValue = "null";
+            if(ctx.literal_value().NUMERIC_LITERAL()!=null){
+                literalValue = ctx.literal_value().NUMERIC_LITERAL().getText();
+                return new ComparerItem(ComparerType.NUMBER,literalValue);
+            }
+            else if(ctx.literal_value().STRING_LITERAL()!=null){
+                literalValue = ctx.literal_value().STRING_LITERAL().getText();
+                return new ComparerItem(ComparerType.STRING,literalValue);
+            }
+            return new ComparerItem(ComparerType.NULL,literalValue);
+        }
+        //如果该项为null的话，return null
+        return null;
+    }
+    @Override
+    public ComparerItem visitExpression(SQLParser.ExpressionContext ctx){
+        if(ctx.comparer()!=null){
+            return (ComparerItem) visit(ctx.comparer());
+        }
+        else if (ctx.expression().size()==1){
+            return (ComparerItem) visit(ctx.getChild(1));
+        }
+        else {
+            ComparerItem compItem1 = (ComparerItem) visit(ctx.getChild(0));
+            ComparerItem compItem2 = (ComparerItem) visit(ctx.getChild(2));
+
+            if ((compItem1.type != ComparerType.NUMBER && compItem1.type!=ComparerType.COLUMN) ||
+                    (compItem2.type != ComparerType.NUMBER && compItem2.type!=ComparerType.COLUMN)) {
+                throw new TypeNotMatchException(compItem1.type, ComparerType.NUMBER);
+            }
+
+            return new ComparerItem(compItem1,compItem2,ctx.getChild(1).getText());
+        }
+    }
+
+    @Override
+    public ConditionItem visitCondition(SQLParser.ConditionContext ctx){
+        ComparerItem comparerItem1 = (ComparerItem) visit(ctx.getChild(0));
+        ComparerItem comparerItem2 = (ComparerItem) visit(ctx.getChild(2));
+        return new ConditionItem(comparerItem1,comparerItem2,ctx.getChild(1).getText());
+    }
+
+    @Override
+    public MultipleConditionItem visitMultiple_condition(SQLParser.Multiple_conditionContext ctx){
+        if(ctx.getChildCount() == 1) {
+            return new MultipleConditionItem((ConditionItem) visit(ctx.getChild(0)));
+        }
+
+        MultipleConditionItem m1 = (MultipleConditionItem) visit(ctx.getChild(0));
+        MultipleConditionItem m2 = (MultipleConditionItem) visit(ctx.getChild(2));
+        return new MultipleConditionItem(m1,m2,ctx.getChild(1).getText());
     }
 }
 
