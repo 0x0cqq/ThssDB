@@ -143,22 +143,6 @@ public class Manager {
     }
   }
 
-
-  // Log control and recover from logs.
-  public void writeLog(String statement) {
-    String logFilename = this.currentDatabase.getDatabaseLogFilePath();
-    try {
-      FileWriter writer = new FileWriter(logFilename, true);
-      writer.write(statement + "\n");
-      writer.close();
-    } catch (Exception e) {
-      throw new FileIOException(logFilename);
-    }
-  }
-
-  // TODO: read Log in transaction to recover.
-  public void readLog(String databaseName) { }
-
   public void recover() {
     File managerDataFile = new File(Manager.getManagerDataFilePath());
     if (!managerDataFile.isFile()) return;
@@ -168,9 +152,14 @@ public class Manager {
       BufferedReader bufferedReader = new BufferedReader(reader);
       String line;
       while ((line = bufferedReader.readLine()) != null) {
-        System.out.println("??!!" + line);
+        System.out.println("recover database name: " + line);
         createDatabaseIfNotExists(line);
-        readLog(line);
+        Database database = this.databases.get(line);
+        // recover database
+        database.recover();
+        // use log to recover database
+        // , but I don't understand this
+        logRecover(database);
       }
       bufferedReader.close();
       reader.close();
@@ -178,6 +167,22 @@ public class Manager {
       throw new FileIOException(managerDataFile.getName());
     }
   }
+
+
+  // use sql handler to re execute those statement.
+  public void logRecover(Database database) {
+    this.currentDatabase = database;
+    ArrayList<String> logs = database.databaseLogger.readLog();
+    for(String statement : logs) {
+      try {
+        // use -1 to re-evaluate those statements
+        sqlHandler.evaluate(statement, -1);
+      } catch( Exception e ) {
+        System.out.println("error when: " + statement);
+      }
+    }
+  }
+
 
   // Get positions
   public static String getManagerDataFilePath(){

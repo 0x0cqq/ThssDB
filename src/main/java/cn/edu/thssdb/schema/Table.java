@@ -48,8 +48,8 @@ public class Table implements Iterable<Row> {
     recover();
   }
 
-  private void recover() {
-    // read from disk for recovering
+  public void recover() {
+      // read from disk for recovering
       try {
         // TODO lock control
         ArrayList<Row> rowsOnDisk = deserialize();
@@ -157,13 +157,13 @@ public class Table implements Iterable<Row> {
   }
 
   public void persist(){
-    try {
-      // TODO add lock control.
-      serialize();
-    }
-    finally {
-      // TODO add lock control.
-    }
+      try {
+        // TODO add lock control.
+        serialize();
+      }
+      finally {
+        // TODO add lock control.
+      }
   }
 
   public void dropTable(){ // remove table data file

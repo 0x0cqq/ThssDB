@@ -159,4 +159,16 @@ ReentrantReadWriteLock 类是 Java 默认的读写锁，拥有一个读锁 `.rea
 
 为了便于管理锁，新建了 schema/LockManager.java 类，用于管理一个 Database 里面所有可能的锁。【这里目前还没有和操作耦合起来】
 
-2. 写日志的模块和从日志恢复的模块两个功能。
+2. 从日志恢复的模块
+
+日志的处理单独构建了一个类：Logger 类。每一个 Database 会绑定一个 Logger 类的实例、
+
+这个 Logger 类并不会参与数据库的恢复，只是一个读/写 Log 工具。
+
+Log 的写是在 SQLHandler 类的 Evaluate 函数的开头，调用数据库的 Logger 完成操作。
+
+从 Log 恢复到数据库是在 Manager 类里面的 LogRecover 函数。这个函数被 Manager 的 Recover 函数调用，调用 Logger 读入 Log 之后，再一行行地调用 SQLHandler 的 Evaluate 函数恢复。
+
+【但我其实不太理解...
+1. 在 Table 的 Recover 函数（也就是 Manager -> Database -> Table 的 Recover一路调用下去）中，是有从磁盘中的文件恢复到 table 的，那这里再从 log 恢复什么呢？
+】

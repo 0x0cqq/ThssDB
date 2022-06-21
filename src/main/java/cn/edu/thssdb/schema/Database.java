@@ -21,16 +21,18 @@ public class Database {
   private String databaseName;
   private HashMap<String, Table> tableMap;
   private LockManager tableLockManager;
+  public Logger databaseLogger;
   ReentrantReadWriteLock lock;
 
   public Database(String databaseName) {
     this.databaseName = databaseName;
     this.tableMap = new HashMap<>();
     this.lock = new ReentrantReadWriteLock();
-    tableLockManager = new LockManager(this);
+    this.tableLockManager = new LockManager(this);
     File tableFolder = new File(this.getDatabaseTableFolderPath());
     if(!tableFolder.exists())
       tableFolder.mkdirs();
+    this.databaseLogger = new Logger(this.getDatabaseDirPath(),"log");
     recover();
   }
 
@@ -112,13 +114,14 @@ public class Database {
     }
   }
 
-  private void recover() {
+  public void recover() {
     System.out.println("! try to recover database " + this.databaseName);
     File tableFolder = new File(this.getDatabaseTableFolderPath());
     File[] files = tableFolder.listFiles();
 //        for(File f: files) System.out.println("...." + f.getName());
     if (files == null) return;
 
+    // 找到 table 的 meta, 并且从文件中恢复数据库
     for (File file : files) {
       if (!file.isFile() || !file.getName().endsWith(Global.META_SUFFIX)) continue;
       try {
@@ -145,6 +148,7 @@ public class Database {
     }
   }
 
+
   public void quit() {
     try {
       this.lock.writeLock().lock();
@@ -169,14 +173,14 @@ public class Database {
   }
 
   // Find position
-  public String getDatabasePath(){
+  public String getDatabaseDirPath(){
     return Global.DBMS_DIR + File.separator + "data" + File.separator + this.databaseName;
   }
   public String getDatabaseTableFolderPath(){
-    return this.getDatabasePath() + File.separator + "tables";
+    return this.getDatabaseDirPath() + File.separator + "tables";
   }
-  public String getDatabaseLogFilePath(){
-    return this.getDatabasePath() + File.separator + "log";
+  private String getDatabaseLogFilePath(){
+    return this.getDatabaseDirPath() + File.separator + "log";
   }
   public static String getDatabaseLogFilePath(String databaseName){
     return Global.DBMS_DIR + File.separator + "data" + File.separator + databaseName + File.separator + "log";
