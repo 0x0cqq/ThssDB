@@ -52,6 +52,10 @@ public class Database {
     }
   }
 
+  public String getName() {
+    return databaseName;
+  }
+
   public void create(String tableName, Column[] columns) {
     try {
       // TODO add lock control.

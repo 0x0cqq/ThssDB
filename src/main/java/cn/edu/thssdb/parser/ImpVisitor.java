@@ -127,7 +127,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             if(manager.currentDatabase == null){
                 throw new DatabaseNotExistException();
             }
-            String tableName = ctx.table_name().getText().toLowerCase();
+            String tableName = ctx.table_name().IDENTIFIER().getSymbol().getText().toLowerCase();
             ArrayList<Column> columnList = new ArrayList<>();
             //获取columnItem，组成columnList
             for(int i = 0; i < ctx.column_def().size();i++){
@@ -333,12 +333,30 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         return "Insert into " + ctx.table_name().getText() + " successfully";
     }
 
+    //? Write by musky
     /**
      * TODO
      表格项删除
      */
     @Override
     public String visitDelete_stmt(SQLParser.Delete_stmtContext ctx) {
+        String table_name = ctx.table_name().getText().toLowerCase();
+        Database db = manager.getCurrentDatabase();
+        Table table = db.get(table_name);
+        if (table == null) {
+            throw new DatabaseNotExistException();
+        }
+        if (ctx.K_WHERE() == null) {
+            return "Exception: ERROR:Delete without where";
+        }
+        if (manager.currentSessions.contains(session)) {
+            Table the_table = db.get(table_name);
+            while (true) {
+                if(!manager.waitSessions.contains(session)) {
+                    int get_lock = the_table.
+                }
+            }
+        }
         return "Delete from" + ctx.table_name().getText() + "successfully";
     }
 
@@ -360,6 +378,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
     /**
      * TODO: bug -- return null?
+     *
      * TODO: 猜测的问题是可能没进到语句的处理没进到这个函数
      展示表 SHOW TABLE tableName
      */
