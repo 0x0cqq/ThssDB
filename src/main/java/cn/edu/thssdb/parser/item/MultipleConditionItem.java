@@ -10,7 +10,7 @@ public class MultipleConditionItem {
     public MultipleConditionItem multiConditionItem1;
     public MultipleConditionItem multiConditionItem2;
     public ConditionItem conditionItem;
-    public Boolean hasChild;
+    public Boolean hasChild=false;
 
     public MultipleConditionItem(ConditionItem c){
         this.hasChild = false;
@@ -21,6 +21,7 @@ public class MultipleConditionItem {
         this.multiConditionItem1 = m1;
         this.multiConditionItem2 = m2;
         this.op = op;
+        this.hasChild =true;
     }
 
     public Boolean hasChild(){

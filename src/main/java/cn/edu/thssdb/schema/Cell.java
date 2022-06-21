@@ -28,7 +28,12 @@ public class Cell implements Comparable<Cell>, Serializable {
   }
 
   public String toString() {
-    return value.toString();
+    if(value!=null){
+      return value.toString();
+    }
+    else{
+      return "null";
+    }
   }
 
   @Override
