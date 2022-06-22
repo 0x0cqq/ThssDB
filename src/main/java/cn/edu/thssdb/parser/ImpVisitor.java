@@ -7,6 +7,7 @@ import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.parser.item.*;
 import cn.edu.thssdb.query.QueryResult;
+import cn.edu.thssdb.query.QueryTable;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
 import cn.edu.thssdb.schema.Table;
@@ -20,6 +21,8 @@ import cn.edu.thssdb.type.ComparerType;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.locks.Condition;
+
+import static cn.edu.thssdb.schema.Column.parseEntry;
 
 /**
  * When use SQL sentence, e.g., "SELECT avg(A) FROM TableX;"
@@ -132,7 +135,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             if(manager.currentDatabase == null){
                 throw new DatabaseNotExistException();
             }
-            String tableName = ctx.table_name().getText().toLowerCase();
+            String tableName = ctx.table_name().IDENTIFIER().getSymbol().getText().toLowerCase();
             ArrayList<Column> columnList = new ArrayList<>();
             //获取columnItem，组成columnList
             for(int i = 0; i < ctx.column_def().size();i++){
@@ -161,15 +164,15 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 columnList.add(column);
             }
             //更新主键对应column的notNull值
-            for(int i = 0;i < columnList.size();i++){
+            for (int i = 0;i < columnList.size();i++){
                 if(columnList.get(i).isPrimary()){
                     columnList.get(i).setNotNull(true);
                 }
             }
             //获取Table constraints，将对应列设置为primary与notNull
-            for(int i = 0;i<ctx.table_constraint().column_name().size();i++){
+            for (int i = 0;i<ctx.table_constraint().column_name().size();i++){
                 String primary_column = ctx.table_constraint().column_name(i).getText();
-                for(int j = 0;j<columnList.size();j++){
+                for (int j = 0;j<columnList.size();j++){
                     Column column = columnList.get(j);
                     if(primary_column.equalsIgnoreCase(column.getColumnName())){
                         column.setPrimary(1);
@@ -338,12 +341,54 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         return "Insert into " + ctx.table_name().getText() + " successfully";
     }
 
+    //? Write by musky
     /**
      * TODO
      表格项删除
      */
     @Override
     public String visitDelete_stmt(SQLParser.Delete_stmtContext ctx) {
+        String table_name = ctx.table_name().getText().toLowerCase();
+        Database db = manager.getCurrentDatabase();
+        Table table = db.get(table_name);
+        if (table == null) {
+            throw new DatabaseNotExistException();
+        }
+        if (ctx.K_WHERE() == null) {
+            return "Exception: ERROR:Delete without where";
+        }
+//        String operator = ctx.multiple_condition().condition().comparator().getText();
+//
+//        String judgeName = ctx.multiple_condition().condition().expression(0).comparer().column_full_name().column_name().getText().toLowerCase();
+//        String compareValue = ctx.multiple_condition().condition().expression(1).comparer().literal_value().getText();
+//
+//        Cell judgeValue = parseEntry(compareValue, table.columns.get(table.columnFind(judgeName)));
+//        Iterator<Row> iterator = table.iterator();
+//        ArrayList<Row> delete_list = to_operate_rows(operator,iterator, table.columnFind(judgeName), judgeValue);
+//
+//        for (Row delete_row:delete_list) {
+//            table.delete(delete_row);
+//        }
+
+
+        MultipleConditionItem whereItem = null;
+        if(ctx.multiple_condition()!=null){
+            whereItem = visitMultiple_condition(ctx.multiple_condition());
+        }
+        ArrayList<String> columnNames = new ArrayList<>();
+        ArrayList<Column> columns = table.columns;
+        for (Column c:columns) {
+            columnNames.add(c.getColumnName());
+        }
+        if (whereItem == null) {
+            return "Exception: ERROR:Delete without where";
+        } else {
+            for (Row row : table) {
+                if (whereItem.evaluate(row, columnNames)) {
+                    table.delete(row);
+                }
+            }
+        }
         return "Delete from" + ctx.table_name().getText() + "successfully";
     }
 
@@ -425,6 +470,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
     /**
      * TODO: bug -- return null?
+     *
      * TODO: 猜测的问题是可能没进到语句的处理没进到这个函数
      展示表 SHOW TABLE tableName
      */
@@ -552,8 +598,9 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
         MultipleConditionItem m1 = (MultipleConditionItem) visit(ctx.getChild(0));
         MultipleConditionItem m2 = (MultipleConditionItem) visit(ctx.getChild(2));
-        return new MultipleConditionItem(m1,m2,ctx.getChild(1).getText());
+        return new MultipleConditionItem(m1, m2, ctx.getChild(1).getText());
     }
+
 }
 
 
