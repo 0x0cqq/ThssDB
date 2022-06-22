@@ -251,3 +251,63 @@ commit
 begin transaction
 update student set dept = 'Finance' where id=2
 commit
+begin transaction
+update student set dept='EE' where id+id>8
+commit
+begin transaction
+update student set dept='Chinese' where id >3
+commit
+begin transaction
+update student set dept= 'English' where id>3+1
+commit
+begin transaction
+update student set dept = 'Finance' where id+1=2
+commit
+begin transaction
+update student set dept=null where id=1
+commit
+begin transaction
+update student set dept='SS' where dept=null
+commit
+begin transaction
+update set dept='Finance' where dept=null
+commit
+begin transaction
+update student set dept='Finance' where dept =null
+commit
+begin transaction
+update student set dept='Finance' where dept=null
+commit
+begin transaction
+update student set dept='Math' where dept=null
+commit
+begin transaction
+update student set dept='Math' where dept=null
+commit
+begin transaction
+update student set dept='Math' where dept=null
+commit
+begin transaction
+update student set dept='Math' where dept=null
+commit
+begin transaction
+update student set dept='Math' where dept=null
+commit
+begin transaction
+update student set dept='Math' where dept='Finance'
+commit
+begin transaction
+update student set dept='Math' where id=2
+commit
+begin transaction
+update student set dept='Math' where dept='Finance'
+commit
+begin transaction
+update student set dept='Math' where dept='Finance'
+commit
+begin transaction
+update student set dept='Chinese' where dept='Math'
+commit
+begin transaction
+update student set dept='Math' where dept=null
+commit

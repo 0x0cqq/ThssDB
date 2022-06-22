@@ -65,6 +65,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         if (ctx.update_stmt() != null) return new QueryResult(visitUpdate_stmt(ctx.update_stmt()));
         if (ctx.select_stmt() != null) return visitSelect_stmt(ctx.select_stmt());
         if (ctx.quit_stmt() != null) return new QueryResult(visitQuit_stmt(ctx.quit_stmt()));
+        if (ctx.show_meta_stmt()!=null) return new QueryResult(visitShow_meta_stmt(ctx.show_meta_stmt()));
         return null;
     }
 
@@ -347,7 +348,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     }
 
     /**
-     * TODO
+     * Finished and Tested
      表格项更新
      */
     @Override
@@ -433,8 +434,10 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             if(manager.currentDatabase==null){
                 throw new DatabaseNotExistException();
             }
-            String tableName = ctx.table_name().IDENTIFIER().getText();
-            return manager.currentDatabase.get(tableName).toString();
+            String tableName = ctx.table_name().getText();
+            Table table = manager.currentDatabase.get(tableName);
+            String tableInfo = table.toString();
+            return tableInfo;
         }
         catch(Exception e){
             return e.getMessage();
@@ -505,7 +508,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     (compItem2.type != ComparerType.NUMBER && compItem2.type!=ComparerType.COLUMN)) {
                 throw new TypeNotMatchException(compItem1.type, ComparerType.NUMBER);
             }
-
+            /*
             String newLiteralValue;
 
             Double itemValue1 = Double.parseDouble(compItem1.literalValue);
@@ -525,9 +528,10 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             else{
                 newLiteralValue = newValue.toString();
             }
+             */
             ComparerItem newComparerItem = new ComparerItem(compItem1,compItem2,ctx.getChild(1).getText());
-            newComparerItem.literalValue=newLiteralValue;
             newComparerItem.type = ComparerType.NUMBER;
+            //newComparerItem.literalValue=newLiteralValue;
 
             return newComparerItem;
         }

@@ -58,12 +58,9 @@ public class ComparerItem {
 
     public Object getValue(Row row,ArrayList<String> ColumnName){
         try {
-            //System.out.println("enter getValue(row,ColumnNames)");
             if (type == ComparerType.COLUMN) {
-                //System.out.println("this.columnName = " + columnName);
                 Cell entry = row.getEntries().get(ColumnName.indexOf(this.columnName));
                 if(entry == null){
-                    //System.out.println("ColumnName not exist.");
                     throw new KeyException();
                 }
                 return entry.value;
@@ -103,10 +100,7 @@ public class ComparerItem {
         return null;
     }
 
-
-
-    /** 由于想到了更好的方式，这个函数已经废弃
-     * 将当前ComparerItem计算成类型为double的值
+    /** 将当前ComparerItem计算成类型为double的值
      *  可以主动调用此函数的ComparerItem:
         - hasChild == true
         - type为 NUMBER
@@ -115,28 +109,16 @@ public class ComparerItem {
      */
     public Double Calculate(Row row,ArrayList<String> ColumnName){
         if(!hasChild){
-            double value;
-            if(this.type == ComparerType.COLUMN){
-                Object value1 = getValue(row,ColumnName);
-                if(value1.getClass().toString().equalsIgnoreCase("STRING")){
-                    throw new TypeNotMatchException(ComparerType.NUMBER,ComparerType.COLUMN);
-                }
-                else{
-                    value = (Double) value1;
-                }
+            Object value1 = getValue(row,ColumnName);
+            if(value1 == null || value1 instanceof String){
+                return null;
             }
-            else if(this.type == ComparerType.NUMBER){
-                value = Double.parseDouble(this.literalValue);
-            }
-            else{
-                throw new TypeNotMatchException(ComparerType.NUMBER,this.type);
-            }
-            return value;
+            return Double.parseDouble(value1.toString());
         }
         else{
             Double value1 = this.comparerItem1.Calculate(row,ColumnName);
             Double value2 = this.comparerItem2.Calculate(row,ColumnName);
-            double value;
+            Double value;
             switch(op){
                 case "+": {
                     value = value1 + value2;
@@ -155,9 +137,17 @@ public class ComparerItem {
                     break;
                 }
                 default:{
-                    value = 0;
+                    value = 0.0;
                 }
             }
+            String newLiteralValue;
+            if(value.intValue() == value.doubleValue()){
+                newLiteralValue=String.valueOf(value.intValue());
+            }
+            else{
+                newLiteralValue = value.toString();
+            }
+            this.literalValue = newLiteralValue;
             return value;
         }
     }

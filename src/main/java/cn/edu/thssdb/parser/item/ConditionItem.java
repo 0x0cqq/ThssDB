@@ -41,22 +41,23 @@ public class ConditionItem {
     public Boolean evaluate(Row row,ArrayList<String> columnName){
         try {
             int compareResult = 0;
-
+            expr1.Calculate(row,columnName);
             Object value1 = expr1.getValue(row, columnName);
-            //System.out.println("value1 = " + value1.getClass().toString() + " " + value1);
+            //if(value1!=null){System.out.println("value1 = " + value1.getClass().toString() + " " + value1);}
+            expr2.Calculate(row,columnName);
             Object value2 = expr2.getValue(row, columnName);
-            //System.out.println("value2 = " + value2.getClass().toString() + " " + value2);
+            //if(value2!=null){System.out.println("value2 = " + value2.getClass().toString() + " " + value2);}
 
             //先处理一方为null的情况
-            if(value1 == null || value2 ==null){
-                if(comparator.equals("==")){
+            if(value1 == null || value2 == null){
+                if(comparator.equals("=")){
                     return value1 == value2;
                 }
                 else if(comparator.equals("<>")){
                     return value1 != value2;
                 }
                 else{
-                    throw new InvalidComparatorException(comparator);
+                    return false;
                 }
             }
 
@@ -89,7 +90,7 @@ public class ConditionItem {
                 case "<>": result = compareResult!=0;break;
                 default: throw new InvalidComparatorException(comparator);
             }
-            System.out.println(result);
+            //System.out.println(result);
             return result;
         }
         catch(Exception e){
