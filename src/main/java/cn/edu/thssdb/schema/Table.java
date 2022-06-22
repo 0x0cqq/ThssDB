@@ -99,6 +99,16 @@ public class Table implements Iterable<Row> {
     }
   }
 
+  //@mdh 该函数返回该列名称的位置
+  public int columnFind(String name) {
+    int size = columns.size();
+    for (int i = 0; i < size; ++i)
+      if (columns.get(i).getColumnName().equals(name))
+        return i;
+    return -1;
+  }
+
+
   public void delete(Row row) {
     try {
       // TODO lock control.
