@@ -356,44 +356,38 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         if (ctx.K_WHERE() == null) {
             return "Exception: ERROR:Delete without where";
         }
-        String operator = ctx.multiple_condition().condition().comparator().getText();
+//        String operator = ctx.multiple_condition().condition().comparator().getText();
+//
+//        String judgeName = ctx.multiple_condition().condition().expression(0).comparer().column_full_name().column_name().getText().toLowerCase();
+//        String compareValue = ctx.multiple_condition().condition().expression(1).comparer().literal_value().getText();
+//
+//        Cell judgeValue = parseEntry(compareValue, table.columns.get(table.columnFind(judgeName)));
+//        Iterator<Row> iterator = table.iterator();
+//        ArrayList<Row> delete_list = to_operate_rows(operator,iterator, table.columnFind(judgeName), judgeValue);
+//
+//        for (Row delete_row:delete_list) {
+//            table.delete(delete_row);
+//        }
 
-        String judgeName = ctx.multiple_condition().condition().expression(0).comparer().column_full_name().column_name().getText().toLowerCase();
-        String compareValue = ctx.multiple_condition().condition().expression(1).comparer().literal_value().getText();
 
-        Cell judgeValue = parseEntry(compareValue, table.columns.get(table.columnFind(judgeName)));
-        Iterator<Row> iterator = table.iterator();
-        ArrayList<Row> delete_list = to_operate_rows(operator,iterator, table.columnFind(judgeName), judgeValue);
-
-        for (Row delete_row:delete_list) {
-            table.delete(delete_row);
+        MultipleConditionItem whereItem = null;
+        if(ctx.multiple_condition()!=null){
+            whereItem = visitMultiple_condition(ctx.multiple_condition());
         }
-
-
-//        ArrayList<Table> tables = new ArrayList<>();
-//        tables.add(table);
-//        QueryTable q_table = new QueryTable(tables);
-//        while (q_table.hasNext()) {
-//
-//        }
-//        if (manager.currentSessions.contains(session)) {
-//            Table the_table = db.get(table_name);
-//            while (true) {
-//                if(!manager.waitSessions.contains(session)) {
-                    // TODO 加锁
-//                }
-//            }
-//        }
-//        try{
-//            MultipleConditionItem muti_cond_item = visitMultiple_condition(ctx.multiple_condition());
-//
-//            table.delete(visitMultiple_condition(ctx.multiple_condition()));
-//            table.showTable();
-//            return new QueryResult(ctx.multiple_condition().getText());
-//        } catch (Exception e) {
-//            return e.toString();
-//        }
-
+        ArrayList<String> columnNames = new ArrayList<>();
+        ArrayList<Column> columns = table.columns;
+        for (Column c:columns) {
+            columnNames.add(c.getColumnName());
+        }
+        if (whereItem == null) {
+            return "Exception: ERROR:Delete without where";
+        } else {
+            for (Row row : table) {
+                if (whereItem.evaluate(row, columnNames)) {
+                    table.delete(row);
+                }
+            }
+        }
         return "Delete from" + ctx.table_name().getText() + "successfully";
     }
 
@@ -601,49 +595,6 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         MultipleConditionItem m1 = (MultipleConditionItem) visit(ctx.getChild(0));
         MultipleConditionItem m2 = (MultipleConditionItem) visit(ctx.getChild(2));
         return new MultipleConditionItem(m1, m2, ctx.getChild(1).getText());
-    }
-
-    public ArrayList<Row> to_operate_rows(String operator, Iterator<Row>iterator, int index, Cell value) {
-        ArrayList<Row> result = new ArrayList<>();
-        switch (operator) {
-            case "=":
-                while(iterator.hasNext()) {
-                    Row row = iterator.next();
-                    if (row.getEntries().get(index).compareTo(value) == 0) result.add(row);
-                }
-                break;
-            case "<>":
-                while(iterator.hasNext()) {
-                    Row row = iterator.next();
-                    if (row.getEntries().get(index).compareTo(value) != 0) result.add(row);
-                }
-                break;
-            case ">":
-                while(iterator.hasNext()) {
-                    Row row = iterator.next();
-                    if (row.getEntries().get(index).compareTo(value) > 0) result.add(row);
-                }
-                break;
-            case ">=":
-                while(iterator.hasNext()) {
-                    Row row = iterator.next();
-                    if (row.getEntries().get(index).compareTo(value) >= 0) result.add(row);
-                }
-                break;
-            case "<":
-                while(iterator.hasNext()) {
-                    Row row = iterator.next();
-                    if (row.getEntries().get(index).compareTo(value) < 0) result.add(row);
-                }
-                break;
-            case "<=":
-                while(iterator.hasNext()) {
-                    Row row = iterator.next();
-                    if (row.getEntries().get(index).compareTo(value) <= 0) result.add(row);
-                }
-                break;
-        }
-        return result;
     }
 
 }
