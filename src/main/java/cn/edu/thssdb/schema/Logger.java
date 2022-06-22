@@ -4,22 +4,17 @@ package cn.edu.thssdb.schema;
 import cn.edu.thssdb.exception.FileIOException;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 
 public class Logger {
     // log 所在的位置
-    private String folder_name;
-    private String file_name;
     private String full_path;
 
     public Logger(String folder_name, String file_name) {
-        this.folder_name = folder_name;
-        this.file_name = file_name;
         this.full_path = Paths.get(folder_name,file_name).toString();
 
-        File dir = new File(this.folder_name);
+        File dir = new File(folder_name);
         if(!dir.isDirectory()){
             dir.mkdirs();
         }
@@ -58,5 +53,14 @@ public class Logger {
             throw new FileIOException(this.full_path);
         }
         return logList;
+    }
+    public void clearLog() {
+        try {
+            FileWriter writer = new FileWriter(this.full_path);
+            writer.write("");
+            writer.close();
+        } catch (Exception e) {
+            throw new FileIOException(this.full_path);
+        }
     }
 }

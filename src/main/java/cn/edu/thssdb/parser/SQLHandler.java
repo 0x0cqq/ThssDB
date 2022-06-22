@@ -43,8 +43,8 @@ public class SQLHandler {
             try{
                 if (!manager.currentSessions.contains(session)){
                     manager.currentSessions.add(session);
-                    ArrayList<String> x_lock_tables = new ArrayList<>();
-                    manager.x_lockDict.put(session, x_lock_tables);
+//                    ArrayList<String> x_lock_tables = new ArrayList<>();
+//                    manager.x_lockDict.put(session, x_lock_tables);
                 } else{
                     System.out.println("session already in a transaction.");
                 }
@@ -56,37 +56,33 @@ public class SQLHandler {
             return queryResults;
         }
 
+        // Commit 语句
         if (statement.equals(Global.LOG_COMMIT)) {
             ArrayList<QueryResult> queryResults = new ArrayList<QueryResult>();
             try{
-                if (manager.currentSessions.contains(session)){
+                if (manager.currentSessions.contains(session)){ // 在一个 transaction 当中
                     Database currentDB = manager.getCurrentDatabase();
                     if(currentDB == null) {
                         throw new DatabaseNotExistException();
                     }
                     String databaseName = currentDB.getDatabaseName();
                     manager.currentSessions.remove(session);
-                    ArrayList<String> table_list = manager.x_lockDict.get(session);
-                    for (String table_name : table_list) {
-                        currentDB.getTableLockManager().releaseWriteLock(table_name);
-                    }
-                    table_list.clear();
-                    manager.x_lockDict.put(session,table_list);
-
+                    // 释放这个 Session 拥有的所有写锁（？）这是个啥？Read Commited 隔离级别吗？
+                    // 使用 Table Lock Manager 操作
+//                    ArrayList<String> table_list = manager.x_lockDict.get(session);
+//                    for (String table_name : table_list) {
+//                        currentDB.getTableLockManager().releaseWriteLock(session, table_name);
+//                    }
+                    currentDB.getTableLockManager().releaseSessionAllWriteLock(session);
+//                    table_list.clear();
+//                    manager.x_lockDict.put(session,table_list);
+                    // 处理 Log 和文件，太长的话就抹掉
                     String databaseLogFilename = Database.getDatabaseLogFilePath(databaseName);
                     File file = new File(databaseLogFilename);
                     if(file.exists() && file.isFile() && file.length() > 50000)
                     {
                         System.out.println("Clear database log");
-                        try
-                        {
-                            FileWriter writer = new FileWriter(databaseLogFilename);
-                            writer.write( "");
-                            writer.close();
-                        } catch (IOException e)
-                        {
-                            e.printStackTrace();
-                        }
+                        manager.get(databaseName).databaseLogger.clearLog();
                         manager.persistDatabase(databaseName);
                     }
                 } else {

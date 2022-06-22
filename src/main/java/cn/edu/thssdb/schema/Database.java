@@ -56,33 +56,43 @@ public class Database {
     }
   }
 
+  // 创建表。
+  // 需要拥有 Database 写的权限
   public void create(String tableName, Column[] columns) {
     try {
-      // TODO add lock control.
+      // 获取写锁
+      this.lock.writeLock().lock();
       if (this.tableMap.containsKey(tableName))
         throw new DuplicateTableException(tableName);
       Table table = new Table(this.databaseName, tableName, columns);
       this.tableMap.put(tableName, table);
       this.persist();
     } finally {
-      // TODO add lock control.
+      // 丢弃写锁
+      this.lock.writeLock().lock();
     }
   }
 
+  // 根据 Table 的名称获取 Table 变量
+  // 需要拥有读的锁。
   public Table get(String tableName) {
     try {
-      // TODO add lock control.
+      // 获取读锁
+      this.lock.readLock().lock();
       if (!this.tableMap.containsKey(tableName))
         throw new TableNotExistException(tableName);
       return this.tableMap.get(tableName);
     } finally {
-      // TODO add lock control.
+      // 释放读锁
+      this.lock.readLock().unlock();
     }
   }
 
+  // 根据 TableName 丢弃一张表
   public void drop(String tableName) {
     try {
-      // TODO add lock control.
+      // 需要有数据库的写锁
+      this.lock.writeLock().lock();
       if (!this.tableMap.containsKey(tableName))
         throw new TableNotExistException(tableName);
       Table table = this.tableMap.get(tableName);
@@ -94,13 +104,16 @@ public class Database {
       table.dropTable();
       this.tableMap.remove(tableName);
     } finally {
-      // TODO add lock control.
+      // 释放写锁
+      this.lock.writeLock().unlock();
     }
   }
 
+  // 丢弃整个数据库
   public void dropDatabase() {
     try {
-      // TODO add lock control.
+      // 需要有数据库的写锁
+      this.lock.writeLock().lock();
       for (Table table : this.tableMap.values()) {
         File file = new File(table.getTableMetaPath());
         if (file.isFile()&&!file.delete())
@@ -110,7 +123,7 @@ public class Database {
       this.tableMap.clear();
       this.tableMap = null;
     } finally {
-      // TODO add lock control.
+      this.lock.writeLock().unlock();
     }
   }
 

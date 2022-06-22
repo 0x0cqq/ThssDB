@@ -11,17 +11,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-// TODO: add lock control
-// TODO: complete readLog() function according to writeLog() for recovering transaction
 
 public class Manager {
   private HashMap<String, Database> databases;
-  private static ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+  private static ReentrantReadWriteLock lock = new ReentrantReadWriteLock(); // 用来保护 Manager 的文件
   public Database currentDatabase;
   public ArrayList<Long> currentSessions;
   public ArrayList<Long> waitSessions;
   public static SQLHandler sqlHandler;
-  public HashMap<Long, ArrayList<String>> x_lockDict;
+//  public HashMap<Long, ArrayList<String>> x_lockDict;
   public static Manager getInstance() {
     return Manager.ManagerHolder.INSTANCE;
   }
@@ -31,7 +29,7 @@ public class Manager {
     databases = new HashMap<>();
     currentDatabase = null;
     sqlHandler = new SQLHandler(this);
-    x_lockDict = new HashMap<>();
+//    x_lockDict = new HashMap<>();
     currentSessions = new ArrayList<>();
     File managerFolder = new File(Global.DBMS_DIR + File.separator + "data");
     if(!managerFolder.exists())
@@ -41,7 +39,7 @@ public class Manager {
 
   public void deleteDatabase(String databaseName) {
     try {
-      // TODO: add lock control
+      lock.writeLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
       Database database = databases.get(databaseName);
@@ -49,18 +47,18 @@ public class Manager {
       databases.remove(databaseName);
 
     } finally {
-      // TODO: add lock control
+      lock.writeLock().unlock();
     }
   }
 
   public void switchDatabase(String databaseName) {
     try {
-      // TODO: add lock control
+      // TODO: add lock control ( Does that really needed?)
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
       currentDatabase = databases.get(databaseName);
     } finally {
-      // TODO: add lock control
+      // TODO: add lock control ( Does that really needed?)
     }
   }
 
@@ -75,7 +73,7 @@ public class Manager {
 
   // utils:
 
-  // Lock example: quit current manager
+  // quit current manager
   public void quit() {
     try {
       lock.writeLock().lock();
@@ -90,18 +88,18 @@ public class Manager {
 
   public Database get(String databaseName) {
     try {
-      // TODO: add lock control
+      lock.readLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
       return databases.get(databaseName);
     } finally {
-      // TODO: add lock control
+      lock.readLock().unlock();
     }
   }
 
   public void createDatabaseIfNotExists(String databaseName) {
     try {
-      // TODO: add lock control
+      lock.writeLock().lock();
       if (!databases.containsKey(databaseName))
         databases.put(databaseName, new Database(databaseName));
       if (currentDatabase == null) {
@@ -115,7 +113,7 @@ public class Manager {
         }
       }
     } finally {
-      // TODO: add lock control
+      lock.writeLock().unlock();
     }
   }
 
@@ -134,12 +132,12 @@ public class Manager {
 
   public void persistDatabase(String databaseName) {
     try {
-      // TODO: add lock control
+      lock.readLock().lock();
       Database database = databases.get(databaseName);
       database.quit();
       persist();
     } finally {
-      // TODO: add lock control
+      lock.readLock().unlock();
     }
   }
 
@@ -157,8 +155,7 @@ public class Manager {
         Database database = this.databases.get(line);
         // recover database
         database.recover();
-        // use log to recover database
-        // , but I don't understand this
+        // use log to recover database(For those that is not on disk
         logRecover(database);
       }
       bufferedReader.close();

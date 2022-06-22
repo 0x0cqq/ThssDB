@@ -39,7 +39,7 @@ IDE：IntelliJ Idea
 
 参见 [这篇文章](https://notes.cqqqwq.com/programming/thrift/)，阅读这篇文章可以理解整个 ThssDB 系统的底层架构，理解在写项目什么位置的代码。
 
-### 任务目标
+## 任务目标
 
 这一部分明确具体的任务目标以及如何实现。
 
@@ -117,7 +117,22 @@ ThssDB代码框架仅作为参考，可根据需要增加模块和类，鼓励�
 5. 实现outer join等其他类型的join；
 6. 其他标准SQL支持的查询语法。
 
-实现方法（估测）：
+#### 说明
+
+为了实现选择/更新语句中的 `where` 子句，我们在 parser/item 中实现了 ConditionItem 和 CompareItem 两个类。
+
+SQL 语句的实现主要在 parser/ImpVisitor.java 类中。
+
+##### Select 语句
+
+##### Insert 语句
+
+##### Update 语句
+
+#### Delete 语句
+
+
+
 
 这一部分主要是在 Server 端处理，确定操作方法后给 Handler 加功能？
 
@@ -149,17 +164,49 @@ schema/Table 类、schema/Database 类、schema/Manager 类包含属于不同数
 
 #### 实现方法：
 
-1. 实现 Read Committed 的锁方法：
+##### 锁与保护
 
-ReentrantReadWriteLock 类是 Java 默认的读写锁，拥有一个读锁 `.readLock()` 和一个写锁 `.writeLock()`。
+ReentrantReadWriteLock 类是 Java 中的可重入读写锁，拥有一个读锁 `.readLock()` 和一个写锁 `.writeLock()`。读锁和读锁可以同时由不同的线程获得，而写锁和读锁、写锁和写锁则不能被同时获得。
 
-为了实现 Read Committed 隔离级别，我们对于所有的读操作和写操作都加上对应的锁。对于读操作，在读过后就释放读锁；对于写操作，在 Commit 之后才释放写锁。
+我们使用这个可重入锁对关键数据进行并发保护。
 
-对于加锁的粒度是加在表（Table）上。数据库只有 SELECT 是读操作，其他操作都是写操作。当一个操作进入 Table 类的具体的函数，对表进行加锁操作；调用 table 的函数之前，也要进行锁状态的检查。
+###### 对 Manager 和 Database 的保护
+
+对 Manager 类和 Database 类的
+
+Manager 的锁保护的是：
+
++ Manager 的文件
++ Manager 类的 databases 变量
+
+Database 的锁保护的是：
+
++ Database 的 tableMap 变量
+
+###### 对 Table 加锁：实现 Read Committed 的锁方法
+
+
+
+为了实现 Read Committed 隔离级别，我们对于所有的读操作和写操作都加上对应的锁。对于读操作，在读过后就释放读锁；对于写操作，在 Commit 之后才释放写锁（在 SQLHandler 里面的 Commit 特判处）。
+
+加锁的粒度是加在表（Table）上。数据库只有 SELECT 是读操作，其他操作都是写操作。当一个操作进入 Table 类的具体的函数，对表进行加锁操作；调用 table 的函数之前，也要进行锁状态的检查。
 
 为了便于管理锁，新建了 schema/LockManager.java 类，用于管理一个 Database 里面所有可能的锁。【这里目前还没有和操作耦合起来】
 
-2. 从日志恢复的模块
+
+在 LockManager 里面，维护了根据 Session 分类的锁的列表。在某一个 Session Commit 的时候，就扫描一遍所有 Database ，并且释放掉当前 Session 所有的写锁。
+
+
+
+###### TODO: 实现 Tuple 级别的加锁。
+
+##### 并发实现
+
+原有代码框架中的 Thrift 的 Server 模型（TSimpleServer）不支持多线程，需要更换成支持多线程的版本。（TODO 似乎是 TThreadPoolServer，记不清了）
+
+##### 日志与日志恢复
+
+###### 日志的处理（Read, Write, Clear)
 
 日志的处理单独构建了一个类：Logger 类。每一个 Database 会绑定一个 Logger 类的实例、
 
@@ -167,8 +214,18 @@ ReentrantReadWriteLock 类是 Java 默认的读写锁，拥有一个读锁 `.rea
 
 Log 的写是在 SQLHandler 类的 Evaluate 函数的开头，调用数据库的 Logger 完成操作。
 
+Log 的读是在 Manager 类的 LogRecover 函数中调用的。
+
+
+###### 从日志的恢复
+
 从 Log 恢复到数据库是在 Manager 类里面的 LogRecover 函数。这个函数被 Manager 的 Recover 函数调用，调用 Logger 读入 Log 之后，再一行行地调用 SQLHandler 的 Evaluate 函数恢复。
 
-【但我其实不太理解...
-1. 在 Table 的 Recover 函数（也就是 Manager -> Database -> Table 的 Recover一路调用下去）中，是有从磁盘中的文件恢复到 table 的，那这里再从 log 恢复什么呢？
-】
+
+Database 的 Persist 函数中，会调用所有 Table 的 Persist，从而将保存在内存中的 Row 输出到磁盘中。
+
+Database 的 Persist 只有在 Quit 的时候才会调用。因此，如果我们没有正常通过 Quit 离开数据库，有些操作的结果就仅仅只会保存在内存中。
+
+因此，异常退出之后，再次打开就只能从 Log 重做来恢复。
+
+> 可能还需要保证只会恢复是上次掉电/异常退出之后的 Log，不知道怎么做到呢？
