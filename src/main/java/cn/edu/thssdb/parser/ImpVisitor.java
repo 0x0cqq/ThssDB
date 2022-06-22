@@ -343,6 +343,14 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public String visitDelete_stmt(SQLParser.Delete_stmtContext ctx) {
+        String tableName = ctx.table_name().getText();
+        Table table = manager.currentDatabase.get(tableName);
+        MultipleConditionItem whereItem = null;
+        if (ctx.multiple_condition() != null) {
+            whereItem = visitMultiple_condition(ctx.multiple_condition());
+        }
+        Iterator<Row> rowIterator = table.iterator();
+
         return "Delete from" + ctx.table_name().getText() + "successfully";
     }
 
