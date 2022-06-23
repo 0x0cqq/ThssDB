@@ -16,7 +16,7 @@ public class ThssDB {
   private static final Logger logger = LoggerFactory.getLogger(ThssDB.class);
 
   private static IServiceHandler handler;
-  private static IServuice.Processor processor;
+  private static IService.Processor processor;
   private static TServerSocket transport;
   private static TServer server;
 
