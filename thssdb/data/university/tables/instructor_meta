@@ -1,0 +1,2 @@
+student_name,STRING,1,true,20
+teacher_name,STRING,0,false,20

@@ -431,3 +431,13 @@ begin transaction
 commit
 begin transaction
 commit
+begin transaction
+insert into instructor values('Bob','Black')
+commit
+begin transaction
+insert into instructor values('Dva','Amanda')
+commit
+begin transaction
+commit
+begin transaction
+commit
