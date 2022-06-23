@@ -53,4 +53,18 @@ public class QueryTable implements Iterator<Row> {
     }
     return columnNames.indexOf(columnName);
   }
+
+  public QueryTable combineQueryTable(QueryTable queryTable){
+    List<Row> newRowList = new ArrayList<>();
+    List<Column> newColumnList = new ArrayList<>(this.columns);
+    newColumnList.addAll(queryTable.columns);
+    for (Row row1: this.results) {
+      for(Row row2: queryTable.results){
+        Row newRow = new Row(row1);
+        newRow.appendEntries(row2.getEntries());
+        newRowList.add(newRow);
+      }
+    }
+    return new QueryTable(newRowList,newColumnList);
+  }
 }

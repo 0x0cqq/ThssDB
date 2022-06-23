@@ -391,3 +391,43 @@ begin transaction
 commit
 begin transaction
 commit
+begin transaction
+insert into teacher values(1,'Amanda','Art',2000)
+commit
+begin transaction
+insert into teacher values(2,'Black','Math',2500)
+commit
+begin transaction
+insert into teacher values(3,'Clerk','Chinese',2000)
+commit
+begin transaction
+delete from teacher where id=3
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit

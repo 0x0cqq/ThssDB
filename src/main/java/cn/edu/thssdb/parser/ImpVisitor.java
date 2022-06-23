@@ -392,7 +392,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 }
             }
         }
-        return "Delete from" + ctx.table_name().getText() + "successfully";
+        return "Delete from " + ctx.table_name().getText() + " successfully";
     }
 
     /**
@@ -478,18 +478,18 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             String firstTableName = tableQuery.table_name(0).getText();
             Table firstTable = manager.currentDatabase.get(firstTableName);
 
-            // 生成from对应的表 targetTable
+            // 生成from对应的查询表 targetTable
             // select from 不止一个表,将多表进行连接，获取目标表targetTable
             QueryTable targetTable = new QueryTable(firstTable);
             ArrayList<Table> TableList = new ArrayList<>();
             if(tableQuery.table_name().size()>1){
-                firstTable = firstTable.getColumnFullNameTable();
+                Table newfirstTable = firstTable.getColumnFullNameTable();
                 for(int i = 1;i<tableQuery.table_name().size();i++){
                     String nowTableName = tableQuery.table_name(i).getText();
                     Table nowTable = manager.currentDatabase.get(nowTableName);
                     TableList.add(nowTable);
                 }
-                targetTable = firstTable.join(TableList);
+                targetTable = newfirstTable.join(TableList);
                 System.out.println(targetTable.toString());
                 //按 On 的条件进行筛选，删除不满足的行
                 if(tableQuery.multiple_condition()!=null){
@@ -502,7 +502,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     List<Row> rowToDelete = new ArrayList<>();
                     while(rowIterator.hasNext()){
                         Row row = rowIterator.next();
-                        if (onItem.evaluate(row,columnNames)){
+                        if (!onItem.evaluate(row,columnNames)){
                             rowToDelete.add(row);
                         }
                     }

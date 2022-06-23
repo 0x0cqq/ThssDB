@@ -140,15 +140,13 @@ public class Table implements Iterable<Row> {
   public QueryTable join(ArrayList<Table> tables){
     try{
       // TODO lock control
-      /*
-      Column[] newColumn =(Column[]) this.columns.toArray();
-      for (Column column:newColumn) {
-        column.setColumnName(this.tableName + "_" + column.getColumnName());
+      QueryTable targetTable = new QueryTable(this);
+      for(Table table:tables){
+        Table newTable = table.getColumnFullNameTable();
+        QueryTable newTargetTable = new QueryTable(newTable);
+        targetTable = targetTable.combineQueryTable(newTargetTable);
       }
-      Table newTable = new Table(this.databaseName,this.tableName,newColumn);
-      return newTable;
-      */
-      return null;
+      return targetTable;
     }finally{
       // TODO lock control
 
@@ -162,11 +160,12 @@ public class Table implements Iterable<Row> {
   public Table getColumnFullNameTable(){
     ArrayList<Column> newColumns = new ArrayList<>();
     for (Column column: columns) {
-      String newColumnName = this.tableName+column.getColumnName();
+      String newColumnName = this.tableName+"_"+column.getColumnName();
       Column newColumn = new Column(newColumnName,column.getColumnType(),column.getPrimary(),column.cantBeNull(),column.getMaxLength());
       newColumns.add(newColumn);
     }
-    Table newTable = new Table(this.databaseName,this.tableName, (Column[]) newColumns.toArray());
+    Column[] newColumn= newColumns.toArray(new Column[0]);
+    Table newTable = new Table(this.databaseName,this.tableName,newColumn);
     newTable.index = this.index;
     //newTable.lock = this.lock;?
     return newTable;
