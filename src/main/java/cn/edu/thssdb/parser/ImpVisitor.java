@@ -490,7 +490,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     TableList.add(nowTable);
                 }
                 targetTable = newfirstTable.join(TableList);
-                System.out.println(targetTable.toString());
+                //System.out.println(targetTable.toString());
                 //按 On 的条件进行筛选，删除不满足的行
                 if(tableQuery.multiple_condition()!=null){
                     MultipleConditionItem onItem = visitMultiple_condition(tableQuery.multiple_condition());
@@ -545,13 +545,13 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                         selectColumnName.add(columnName);
                     }
                 }
-
+                /*
                 System.out.print("selectColumnsName:");
                 for(String columnName:selectColumnName){
                     System.out.print(columnName + " ");
                 }
                 System.out.println(" ");
-
+                */
                 //获取selectColumnName对应的index
                 ArrayList<Integer> selectColumnIndex = new ArrayList<>();
                 for (String columnName: selectColumnName) {
@@ -559,12 +559,12 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     selectColumns.add(targetTable.columns.get(index));
                     selectColumnIndex.add(index);
                 }
-
+                /*
                 System.out.print("selectColumnIndex:");
                 for(Integer index:selectColumnIndex){
                     System.out.print(index + " ");
                 }
-
+                */
 
                 //再对行按列筛选
                 Iterator<Row> rowIterator = targetTable.results.iterator();
@@ -585,6 +585,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             //得到ArrayList<Column> selectColumns 为列
             //得到ArrayList<Row> rowList 为行
             //测试值是否正确
+            /*
             for (Column column:selectColumns) {
                 System.out.print(column.toString() + " ");
             }
@@ -592,6 +593,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             for(Row row:rowList){
                 System.out.println(row.toString());
             }
+             */
             QueryTable queryTable = new QueryTable(rowList,selectColumns);
             QueryTable[] queryTables = {queryTable};
             return new QueryResult(queryTables);
