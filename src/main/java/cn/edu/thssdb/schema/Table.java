@@ -4,6 +4,7 @@ import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.index.BPlusTree;
 import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.common.Pair;
+import cn.edu.thssdb.query.QueryTable;
 
 import java.io.*;
 import java.lang.reflect.Array;
@@ -136,7 +137,7 @@ public class Table implements Iterable<Row> {
    * 需要获取读锁
    * @return 连接后的新表
    */
-  public Table join(ArrayList<Table> tables){
+  public QueryTable join(ArrayList<Table> tables){
     try{
       // TODO lock control
       /*

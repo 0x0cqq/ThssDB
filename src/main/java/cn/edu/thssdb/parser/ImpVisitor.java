@@ -480,7 +480,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
             // 生成from对应的表 targetTable
             // select from 不止一个表,将多表进行连接，获取目标表targetTable
-            Table targetTable = firstTable;
+            QueryTable targetTable = new QueryTable(firstTable);
             ArrayList<Table> TableList = new ArrayList<>();
             if(tableQuery.table_name().size()>1){
                 firstTable = firstTable.getColumnFullNameTable();
@@ -494,44 +494,44 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 //按 On 的条件进行筛选，删除不满足的行
                 if(tableQuery.multiple_condition()!=null){
                     MultipleConditionItem onItem = visitMultiple_condition(tableQuery.multiple_condition());
-                    Iterator<Row> rowIterator = targetTable.iterator();
+                    Iterator<Row> rowIterator = targetTable.results.iterator();
                     ArrayList<String> columnNames = new ArrayList<>();
                     for (Column column: targetTable.columns) {
                         columnNames.add(column.getColumnName());
                     }
+                    List<Row> rowToDelete = new ArrayList<>();
                     while(rowIterator.hasNext()){
                         Row row = rowIterator.next();
                         if (onItem.evaluate(row,columnNames)){
-                            targetTable.delete(row);
+                            rowToDelete.add(row);
                         }
                     }
+                    targetTable.results.removeAll(rowToDelete);
                 }
             }
             // 按 where 条件进行筛选，删除不满足的行
             if(ctx.multiple_condition()!=null){
                 MultipleConditionItem whereItem = visitMultiple_condition(ctx.multiple_condition());
-                Iterator<Row> rowIterator = targetTable.iterator();
+                Iterator<Row> rowIterator = targetTable.results.iterator();
                 ArrayList<String> columnNames = new ArrayList<>();
                 for (Column column: targetTable.columns) {
                     columnNames.add(column.getColumnName());
                 }
+                List<Row> rowToDelete = new ArrayList<>();
                 while(rowIterator.hasNext()){
                     Row row = rowIterator.next();
                     if (!whereItem.evaluate(row,columnNames)){
-                        targetTable.delete(row);
+                        rowToDelete.add(row);
                     }
                 }
+                targetTable.results.removeAll(rowToDelete);
             }
             //按select进行列的筛选
             ArrayList<Column> selectColumns = new ArrayList<>();
             ArrayList<Row> rowList = new ArrayList<>();
             if(ctx.result_column().get(0).getText().equals("*")){
-                selectColumns = targetTable.columns;
-                Iterator<Row> rowIterator = targetTable.iterator();
-                while(rowIterator.hasNext()){
-                    Row row = rowIterator.next();
-                    rowList.add(row);
-                }
+                selectColumns.addAll(targetTable.columns);
+                rowList.addAll(targetTable.results);
             }
             else{
                 //先对列进行筛选
@@ -546,7 +546,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     }
                 }
 
-                System.out.print("selectColumns:");
+                System.out.print("selectColumnsName:");
                 for(String columnName:selectColumnName){
                     System.out.print(columnName + " ");
                 }
@@ -556,6 +556,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 ArrayList<Integer> selectColumnIndex = new ArrayList<>();
                 for (String columnName: selectColumnName) {
                     int index = targetTable.Column2Index(columnName);
+                    selectColumns.add(targetTable.columns.get(index));
                     selectColumnIndex.add(index);
                 }
 
@@ -564,8 +565,9 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     System.out.print(index + " ");
                 }
 
+
                 //再对行按列筛选
-                Iterator<Row> rowIterator = targetTable.iterator();
+                Iterator<Row> rowIterator = targetTable.results.iterator();
                 while(rowIterator.hasNext()){
                     Row row = rowIterator.next();
                     ArrayList<Cell> Entries = row.getEntries();
@@ -590,7 +592,9 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             for(Row row:rowList){
                 System.out.println(row.toString());
             }
-            return null;
+            QueryTable queryTable = new QueryTable(rowList,selectColumns);
+            QueryTable[] queryTables = {queryTable};
+            return new QueryResult(queryTables);
         }
         catch(Exception e) {
             return new QueryResult(e.getMessage());
