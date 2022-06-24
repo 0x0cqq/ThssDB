@@ -1,10 +1,12 @@
 package cn.edu.thssdb.query;
 
 
+import cn.edu.thssdb.schema.Column;
 import cn.edu.thssdb.schema.MetaInfo;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.type.QueryResultType;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -28,7 +30,11 @@ public class QueryResult {
   public QueryResult(QueryTable[] queryTables) {
     this.resultType = QueryResultType.SELECT;
     this.errorMessage = null;
-    // TODO
+    this.results = queryTables[0].results;
+    this.columnNames = new ArrayList<>();
+    for (Column column:queryTables[0].columns) {
+      columnNames.add(column.getColumnName());
+    }
   }
 
   public QueryResult(String errorMessage){

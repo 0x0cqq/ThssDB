@@ -311,3 +311,133 @@ commit
 begin transaction
 update student set dept='Math' where dept=null
 commit
+begin transaction
+update student set dept='Art' where dept = 'Math'
+commit
+begin transaction
+update student set dept='Art' where student.dept='Finance'
+commit
+begin transaction
+update student set dept='Art' where student.dept='Chinese'
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+update student set dept='Math' where dept='English'
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+insert into teacher values(1,'Amanda','Art',2000)
+commit
+begin transaction
+insert into teacher values(2,'Black','Math',2500)
+commit
+begin transaction
+insert into teacher values(3,'Clerk','Chinese',2000)
+commit
+begin transaction
+delete from teacher where id=3
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+insert into instructor values('Bob','Black')
+commit
+begin transaction
+insert into instructor values('Dva','Amanda')
+commit
+begin transaction
+commit
+begin transaction
+commit

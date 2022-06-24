@@ -10,7 +10,7 @@ import java.security.KeyException;
 import java.util.ArrayList;
 
 public class ComparerItem {
-    public String tableName;
+    public String tableName = null;
     public String columnName;
     public String literalValue;
     public ComparerType type;
@@ -59,7 +59,15 @@ public class ComparerItem {
     public Object getValue(Row row,ArrayList<String> ColumnName){
         try {
             if (type == ComparerType.COLUMN) {
-                Cell entry = row.getEntries().get(ColumnName.indexOf(this.columnName));
+                int index = -1;
+                if(this.tableName!=null){
+                    String columnFullName = this.tableName+"_"+this.columnName;
+                    index = ColumnName.indexOf(columnFullName);
+                }
+                if(index == -1){
+                    index = ColumnName.indexOf(this.columnName);
+                }
+                Cell entry = row.getEntries().get(index);
                 if(entry == null){
                     throw new KeyException();
                 }

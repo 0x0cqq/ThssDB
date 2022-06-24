@@ -4,8 +4,10 @@ import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.index.BPlusTree;
 import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.common.Pair;
+import cn.edu.thssdb.query.QueryTable;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -99,15 +101,6 @@ public class Table implements Iterable<Row> {
     }
   }
 
-  //@mdh 该函数返回该列名称的位置
-  public int columnFind(String name) {
-    int size = columns.size();
-    for (int i = 0; i < size; ++i)
-      if (columns.get(i).getColumnName().equals(name))
-        return i;
-    return -1;
-  }
-
 
   public void delete(Row row) {
     try {
@@ -135,6 +128,47 @@ public class Table implements Iterable<Row> {
     }finally {
       // TODO lock control.
     }
+  }
+
+  /**
+   * 表的笛卡尔积连接操作
+   * 由一个表调用，参数为其将要连接的表（不包括自己）
+   * 调用该操作的表的列名需要是tableName_columnName的形式
+   * 需要获取读锁
+   * @return 连接后的新表
+   */
+  public QueryTable join(ArrayList<Table> tables){
+    try{
+      // TODO lock control
+      QueryTable targetTable = new QueryTable(this);
+      for(Table table:tables){
+        Table newTable = table.getColumnFullNameTable();
+        QueryTable newTargetTable = new QueryTable(newTable);
+        targetTable = targetTable.combineQueryTable(newTargetTable);
+      }
+      return targetTable;
+    }finally{
+      // TODO lock control
+
+    }
+  }
+  /**
+   * 将表的列名换为tableName_columnName的形式
+   * 这里似乎不应该加锁
+   * @return 一个新表
+   */
+  public Table getColumnFullNameTable(){
+    ArrayList<Column> newColumns = new ArrayList<>();
+    for (Column column: columns) {
+      String newColumnName = this.tableName+"_"+column.getColumnName();
+      Column newColumn = new Column(newColumnName,column.getColumnType(),column.getPrimary(),column.cantBeNull(),column.getMaxLength());
+      newColumns.add(newColumn);
+    }
+    Column[] newColumn= newColumns.toArray(new Column[0]);
+    Table newTable = new Table(this.databaseName,this.tableName,newColumn);
+    newTable.index = this.index;
+    //newTable.lock = this.lock;?
+    return newTable;
   }
 
   private void serialize() {
