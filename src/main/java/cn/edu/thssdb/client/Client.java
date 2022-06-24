@@ -177,11 +177,13 @@ public class Client {
             println(row_str.toString());
           }
         } else {
-          for (String column : resp.columnsList) {
-            column = column.trim();
-            if (column.equals("start transaction")) inTransaction = "(T)";
-            else if (column.equals("commit transaction")) inTransaction = "";
-            println(column);
+          if(resp.columnsList != null) {
+            for (String column : resp.columnsList) {
+              column = column.trim();
+              if (column.equals("start transaction")) inTransaction = "(T)";
+              else if (column.equals("commit transaction")) inTransaction = "";
+              println(column);
+            }
           }
         }
       }

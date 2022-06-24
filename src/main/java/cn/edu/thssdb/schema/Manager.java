@@ -15,7 +15,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class Manager {
   private HashMap<String, Database> databases;
   private static ReentrantReadWriteLock lock = new ReentrantReadWriteLock(); // 用来保护 Manager 的文件
-  public Database currentDatabase;
+  private Database currentDatabase;
   public ArrayList<Long> currentSessions;
   public ArrayList<Long> waitSessions;
   public static SQLHandler sqlHandler;
@@ -69,7 +69,12 @@ public class Manager {
     }
   }
 
-  public Database getCurrentDatabase(){return currentDatabase;}
+  public String getCurrentDatabaseName(){
+    if(currentDatabase == null) {
+      throw new DatabaseNotExistException("current database not exists\n");
+    }
+    return currentDatabase.getDatabaseName();
+  }
 
   // utils:
 
@@ -86,12 +91,23 @@ public class Manager {
     }
   }
 
-  public Database get(String databaseName) {
+  public Database.DatabaseHandler getCurrentDatabase() {
+    try {
+      lock.readLock().lock();
+      if (currentDatabase == null)
+        throw new DatabaseNotExistException("current Database");
+      return  currentDatabase.getReadHandler();
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  public Database.DatabaseHandler get(String databaseName) {
     try {
       lock.readLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
-      return databases.get(databaseName);
+      return  databases.get(databaseName).getReadHandler();
     } finally {
       lock.readLock().unlock();
     }
@@ -166,7 +182,7 @@ public class Manager {
   }
 
 
-  // use sql handler to re execute those statement.
+  // use sql handler to re-execute those statements.
   public void logRecover(Database database) {
     this.currentDatabase = database;
     ArrayList<String> logs = database.databaseLogger.readLog();
@@ -185,4 +201,5 @@ public class Manager {
   public static String getManagerDataFilePath(){
     return Global.DBMS_DIR + File.separator + "data" + File.separator + "manager";
   }
+
 }

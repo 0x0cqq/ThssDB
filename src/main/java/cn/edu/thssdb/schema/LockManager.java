@@ -17,48 +17,42 @@ public class LockManager {
         this.writeLockList = new HashMap<>();
     }
 
-    public void getReadLock(Long session, String tableName) {
-        Table table = this.database.get(tableName);
-        ReentrantReadWriteLock.ReadLock readLock = table.lock.readLock();
-        readLock.lock();
-        if(!readLockList.containsKey(session)) {
-            readLockList.put(session, new ArrayList<>());
-        }
-        ArrayList<ReentrantReadWriteLock.ReadLock> currentSessionReadLockList = readLockList.get(session);
-        currentSessionReadLockList.add(readLock);
-        readLockList.put(session, currentSessionReadLockList);
-        System.out.println(readLockList.toString());
-    }
-
-    public void releaseReadLock(Long session, String tableName) {
-        Table table = this.database.get(tableName);
-        ReentrantReadWriteLock.ReadLock readLock = table.lock.readLock();
+//    public void getReadLock(Long session, String tableName) {
+//        Table table = this.database.get(tableName);
+//        ReentrantReadWriteLock.ReadLock readLock = table.lock.readLock();
+//        readLock.lock();
+//        if(!readLockList.containsKey(session)) {
+//            readLockList.put(session, new ArrayList<>());
+//        }
+//        ArrayList<ReentrantReadWriteLock.ReadLock> currentSessionReadLockList = readLockList.get(session);
+//        currentSessionReadLockList.add(readLock);
+//        readLockList.put(session, currentSessionReadLockList);
 //        System.out.println(readLockList.toString());
-        if(!readLockList.containsKey(session) && readLockList.get(session).remove(readLock)) {
-            readLock.unlock();
-        }
-        else {
-            System.out.println("Failed to release ReadLock:" + session.toString() + "\n");
-        }
-    }
+//    }
+//
+//    public void releaseReadLock(Long session, String tableName) {
+//        Table table = this.database.get(tableName);
+//        ReentrantReadWriteLock.ReadLock readLock = table.lock.readLock();
+////        System.out.println(readLockList.toString());
+//        if(!readLockList.containsKey(session) && readLockList.get(session).remove(readLock)) {
+//            readLock.unlock();
+//        }
+//        else {
+//            System.out.println("Failed to release ReadLock:" + session.toString() + "\n");
+//        }
+//    }
 
-    public void getWriteLock(Long session, String tableName) {
-        Table table = this.database.get(tableName);
-        ReentrantReadWriteLock.WriteLock writeLock = table.lock.writeLock();
-        if(writeLock.isHeldByCurrentThread()){
-            return;
-        }
+    public void getWriteLock(Long session, Table.TableHandler tb) {
+        Boolean newSetLock = tb.setWriteLock();
         if(!writeLockList.containsKey(session)) {
             writeLockList.put(session, new ArrayList<>());
         }
         ArrayList<ReentrantReadWriteLock.WriteLock> currentSessionWriteLockList = writeLockList.get(session);
-        currentSessionWriteLockList.add(writeLock);
-        writeLock.lock();
+        currentSessionWriteLockList.add(tb.getTable().lock.writeLock());
     }
 
-    public void releaseWriteLock(Long session, String tableName) {
-        Table table = this.database.get(tableName);
-        ReentrantReadWriteLock.WriteLock writeLock = table.lock.writeLock();
+    public void releaseWriteLock(Long session, Table.TableHandler tb) {
+        ReentrantReadWriteLock.WriteLock writeLock = tb.getTable().lock.writeLock();
         System.out.println(writeLockList.toString());
         if(writeLockList.containsKey(session) && writeLockList.get(session).remove(writeLock)) {
             writeLock.unlock();

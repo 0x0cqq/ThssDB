@@ -26,6 +26,47 @@ public class Table implements Iterable<Row> {
   public BPlusTree<Cell, Row> index;
   private int primaryIndex;
 
+  public class TableHandler implements AutoCloseable {
+    private Boolean haveReadLock;
+    private Boolean haveWriteLock;
+    public TableHandler(Boolean read, Boolean write){
+      this.haveReadLock = read;
+      this.haveWriteLock = write;
+      if(read){
+        lock.readLock().lock();
+      }
+      if(write) {
+        lock.writeLock().lock();
+      }
+    }
+    public Boolean setWriteLock() {
+      if(this.haveReadLock){
+        lock.readLock().unlock();
+        this.haveReadLock = false;
+      }
+      if(lock.isWriteLockedByCurrentThread()){
+        return false;
+      }
+      lock.writeLock().lock();
+      this.haveWriteLock = true;
+      return true;
+    }
+    public Table getTable(){ return Table.this; }
+    @Override
+    public void close() {
+      // 这里可以根据不同的隔离级别选择不同的 Close 方式
+      // 目前只支持 Read Committed
+      if(haveReadLock) {
+        lock.readLock().unlock();
+        haveReadLock = false;
+      }
+    }
+  }
+
+  public TableHandler getTableHandler() {
+    return new TableHandler(true, false);
+  }
+
 
   // Initiate: Table, recover
   public Table(String databaseName, String tableName, Column[] columns) {

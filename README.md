@@ -162,7 +162,7 @@ schema/Table 类、schema/Database 类、schema/Manager 类包含属于不同数
 4. 实现 MVCC 协议。
 
 
-#### 实现方法：
+#### 实现解读
 
 ##### 锁与保护
 
@@ -170,14 +170,22 @@ ReentrantReadWriteLock 类是 Java 中的可重入读写锁，拥有一个读锁
 
 我们使用这个可重入锁对关键数据进行并发保护。
 
-###### 对 Manager 和 Database 的保护
+###### 对 Manager 的保护
 
-对 Manager 类和 Database 类的
+对 Manager 类和 Database 类的锁在自己类内实现，不对外暴露接口。
 
 Manager 的锁保护的是：
 
 + Manager 的文件
 + Manager 类的 databases 变量
+
+###### 对 Database 的保护
+
+考虑到获取一个 Database 引用其实就是在对 Database 进行读操作，所以为了强制保证获取 Database 变量的时候就对该 Database 加以读锁，我们构建了 DatabaseHandler 类。
+
+为了保证语法的简洁，我们继承 AutoClosable 类，这样的类的对象在放入 try-with-resources 的时候，会在离开 try 块的时候自动调用 close 函数。
+
+我们在构造函数中获取读锁，而在 close 函数中释放读锁，这样就可以保证能够通过 Handler 获得 Database 的引用时，始终拥有该数据库的读锁。
 
 Database 的锁保护的是：
 
@@ -185,24 +193,19 @@ Database 的锁保护的是：
 
 ###### 对 Table 加锁：实现 Read Committed 的锁方法
 
+为了实现 Read Committed 隔离级别，我们对于所有的读操作（通过下文的 Handler 实现）和写操作（通过下文的 LockManager 实现）都加上对应的锁。
 
-
-为了实现 Read Committed 隔离级别，我们对于所有的读操作和写操作都加上对应的锁。对于读操作，在读过后就释放读锁；对于写操作，在 Commit 之后才释放写锁（在 SQLHandler 里面的 Commit 特判处）。
+对于读操作，在读过后就释放读锁（通过 AutoClosable 的锁实现）；对于写操作，在 Commit 之后才释放写锁（在 SQLHandler 里面的 Commit 特判处）。
 
 加锁的粒度是加在表（Table）上。数据库只有 SELECT 是读操作，其他操作都是写操作。当一个操作进入 Table 类的具体的函数，对表进行加锁操作；调用 table 的函数之前，也要进行锁状态的检查。
 
-为了便于管理锁，新建了 schema/LockManager.java 类，用于管理一个 Database 里面所有可能的锁。【这里目前还没有和操作耦合起来】
+为了便于根据隔离级别管理（释放）锁，我们新建了 schema/LockManager.java 类，用于管理一个 Database 里面所有可能 Table 的锁。 在 LockManager 类中，维护了根据 Session 分类的锁的列表。在某一个 Session Commit 的时候，就扫描一遍所有 Database ，并且释放掉当前 Session 所有的写锁。
 
-
-在 LockManager 里面，维护了根据 Session 分类的锁的列表。在某一个 Session Commit 的时候，就扫描一遍所有 Database ，并且释放掉当前 Session 所有的写锁。
-
-
-
-###### TODO: 实现 Tuple 级别的加锁。
+和 Database 同样的，我们也引入了 TableHandler，用于规范和简化 Table 的读取加锁流程。
 
 ##### 并发实现
 
-原有代码框架中的 Thrift 的 Server 模型（TSimpleServer）不支持多线程，需要更换成支持多线程的版本。（TODO 似乎是 TThreadPoolServer，记不清了）
+原有代码框架中的 Thrift 的 Server 模型（TSimpleServer）不支持多线程，需要更换成支持多线程的版本，也就是 TThreadPoolServer。
 
 ##### 日志与日志恢复
 
