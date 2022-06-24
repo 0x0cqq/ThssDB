@@ -25,7 +25,7 @@ public class Row implements Serializable {
   public Row(Row row){
     this.entries = new ArrayList<>();
     for(Cell cell : row.entries)
-      this.entries.add(new Cell(cell));
+      this.entries.add(cell);
   }
 
   public ArrayList<Cell> getEntries() {

@@ -4,8 +4,10 @@ import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.index.BPlusTree;
 import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.common.Pair;
+import cn.edu.thssdb.query.QueryTable;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -72,6 +74,9 @@ public class Table implements Iterable<Row> {
       }
   }
 
+  public int getPrimaryIndex(){
+    return this.primaryIndex;
+  }
 
   // Operations: get, insert, delete, update, dropTable, you can add other operations.
   // remember to use locks to fill the TODOs
@@ -84,7 +89,6 @@ public class Table implements Iterable<Row> {
       // TODO lock control
     }
   }
-
   public void insert(Row row) {
     try {
       // TODO lock control
@@ -96,6 +100,7 @@ public class Table implements Iterable<Row> {
       // TODO lock control
     }
   }
+
 
   public void delete(Row row) {
     try {
@@ -114,13 +119,56 @@ public class Table implements Iterable<Row> {
       // TODO lock control.
       this.checkRowValidInTable(newRow);
       Row oldRow = this.get(primaryCell);
+      /** 感觉这里有问题，按这个就只能修改主键了，所以我给他注释了
       if(this.containsRow(newRow))
         throw new DuplicateKeyException();   // 要么删并插入，要么抛出异常
+       */
       this.index.remove(primaryCell);
       this.index.put(newRow.getEntries().get(this.primaryIndex), newRow);
     }finally {
       // TODO lock control.
     }
+  }
+
+  /**
+   * 表的笛卡尔积连接操作
+   * 由一个表调用，参数为其将要连接的表（不包括自己）
+   * 调用该操作的表的列名需要是tableName_columnName的形式
+   * 需要获取读锁
+   * @return 连接后的新表
+   */
+  public QueryTable join(ArrayList<Table> tables){
+    try{
+      // TODO lock control
+      QueryTable targetTable = new QueryTable(this);
+      for(Table table:tables){
+        Table newTable = table.getColumnFullNameTable();
+        QueryTable newTargetTable = new QueryTable(newTable);
+        targetTable = targetTable.combineQueryTable(newTargetTable);
+      }
+      return targetTable;
+    }finally{
+      // TODO lock control
+
+    }
+  }
+  /**
+   * 将表的列名换为tableName_columnName的形式
+   * 这里似乎不应该加锁
+   * @return 一个新表
+   */
+  public Table getColumnFullNameTable(){
+    ArrayList<Column> newColumns = new ArrayList<>();
+    for (Column column: columns) {
+      String newColumnName = this.tableName+"_"+column.getColumnName();
+      Column newColumn = new Column(newColumnName,column.getColumnType(),column.getPrimary(),column.cantBeNull(),column.getMaxLength());
+      newColumns.add(newColumn);
+    }
+    Column[] newColumn= newColumns.toArray(new Column[0]);
+    Table newTable = new Table(this.databaseName,this.tableName,newColumn);
+    newTable.index = this.index;
+    //newTable.lock = this.lock;?
+    return newTable;
   }
 
   private void serialize() {
@@ -193,7 +241,13 @@ public class Table implements Iterable<Row> {
     }
   }
 
-
+  public int Column2Index(String columnName){
+    ArrayList<String> columnNames = new ArrayList<>();
+    for (Column column:this.columns) {
+      columnNames.add(column.getColumnName());
+    }
+    return columnNames.indexOf(columnName);
+  }
   // Operations involving logic expressions.
 
 

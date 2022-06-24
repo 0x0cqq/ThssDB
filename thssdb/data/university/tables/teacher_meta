@@ -1,0 +1,4 @@
+id,INT,1,true,0
+name,STRING,0,false,20
+dept,STRING,0,false,20
+salary,INT,0,false,0
