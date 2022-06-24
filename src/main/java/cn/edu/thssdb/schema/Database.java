@@ -56,6 +56,10 @@ public class Database {
     }
   }
 
+  public String getName() {
+    return databaseName;
+  }
+  
   // 创建表。
   // 需要拥有 Database 写的权限
   public void create(String tableName, Column[] columns) {

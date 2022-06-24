@@ -5,10 +5,12 @@ import cn.edu.thssdb.exception.TypeNotMatchException;
 import cn.edu.thssdb.type.ComparerType;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.schema.Cell;
+
+import java.security.KeyException;
 import java.util.ArrayList;
 
 public class ComparerItem {
-    public String tableName;
+    public String tableName = null;
     public String columnName;
     public String literalValue;
     public ComparerType type;
@@ -55,18 +57,57 @@ public class ComparerItem {
     }
 
     public Object getValue(Row row,ArrayList<String> ColumnName){
+        try {
+            if (type == ComparerType.COLUMN) {
+                int index = -1;
+                if(this.tableName!=null){
+                    String columnFullName = this.tableName+"_"+this.columnName;
+                    index = ColumnName.indexOf(columnFullName);
+                }
+                if(index == -1){
+                    index = ColumnName.indexOf(this.columnName);
+                }
+                Cell entry = row.getEntries().get(index);
+                if(entry == null){
+                    throw new KeyException();
+                }
+                return entry.value;
+            } else if (type == ComparerType.NUMBER) {
+                if(literalValue.contains(".")){
+                    return Double.parseDouble(literalValue);
+                }
+                else{
+                    return Integer.parseInt(literalValue);
+                }
+            } else if (type == ComparerType.STRING) {
+                return literalValue;
+            }
+            return null;
+        }
+        catch (Exception e){
+            System.out.println("Get Error in ComparerItem.getValue(Row,ArrayList<String>): " + e.getMessage());
+            return null;
+        }
+    }
+
+    public Object getValue(){
         if(type == ComparerType.COLUMN){
-            Cell entry = row.getEntries().get(ColumnName.indexOf(this.columnName));
-            return entry.value;
+            throw new TypeNotMatchException(ComparerType.COLUMN,ComparerType.NUMBER);
         }
         else if(type == ComparerType.NUMBER){
-            return Double.parseDouble(literalValue);
+            if(literalValue.contains(".")){
+                return Double.parseDouble(literalValue);
+            }
+            else{
+                return Integer.parseInt(literalValue);
+            }
         }
         else if(type == ComparerType.STRING){
             return literalValue;
         }
         return null;
     }
+
     /** 将当前ComparerItem计算成类型为double的值
      *  可以主动调用此函数的ComparerItem:
         - hasChild == true
@@ -76,28 +117,16 @@ public class ComparerItem {
      */
     public Double Calculate(Row row,ArrayList<String> ColumnName){
         if(!hasChild){
-            double value;
-            if(this.type == ComparerType.COLUMN){
-                Object value1 = getValue(row,ColumnName);
-                if(value1.getClass().toString().equalsIgnoreCase("STRING")){
-                    throw new TypeNotMatchException(ComparerType.NUMBER,ComparerType.COLUMN);
-                }
-                else{
-                    value = (Double) value1;
-                }
+            Object value1 = getValue(row,ColumnName);
+            if(value1 == null || value1 instanceof String){
+                return null;
             }
-            else if(this.type == ComparerType.NUMBER){
-                value = Double.parseDouble(this.literalValue);
-            }
-            else{
-                throw new TypeNotMatchException(ComparerType.NUMBER,this.type);
-            }
-            return value;
+            return Double.parseDouble(value1.toString());
         }
         else{
             Double value1 = this.comparerItem1.Calculate(row,ColumnName);
             Double value2 = this.comparerItem2.Calculate(row,ColumnName);
-            double value;
+            Double value;
             switch(op){
                 case "+": {
                     value = value1 + value2;
@@ -116,9 +145,17 @@ public class ComparerItem {
                     break;
                 }
                 default:{
-                    value = 0;
+                    value = 0.0;
                 }
             }
+            String newLiteralValue;
+            if(value.intValue() == value.doubleValue()){
+                newLiteralValue=String.valueOf(value.intValue());
+            }
+            else{
+                newLiteralValue = value.toString();
+            }
+            this.literalValue = newLiteralValue;
             return value;
         }
     }

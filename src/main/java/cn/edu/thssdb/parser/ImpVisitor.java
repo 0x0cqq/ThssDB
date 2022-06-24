@@ -7,6 +7,7 @@ import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.parser.item.*;
 import cn.edu.thssdb.query.QueryResult;
+import cn.edu.thssdb.query.QueryTable;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
 import cn.edu.thssdb.schema.Table;
@@ -17,8 +18,14 @@ import cn.edu.thssdb.type.ColumnType;
 import cn.edu.thssdb.type.ComparerType;
 
 
+import java.lang.annotation.Target;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.locks.Condition;
+
+import static cn.edu.thssdb.schema.Column.parseEntry;
 
 /**
  * When use SQL sentence, e.g., "SELECT avg(A) FROM TableX;"
@@ -64,6 +71,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         if (ctx.update_stmt() != null) return new QueryResult(visitUpdate_stmt(ctx.update_stmt()));
         if (ctx.select_stmt() != null) return visitSelect_stmt(ctx.select_stmt());
         if (ctx.quit_stmt() != null) return new QueryResult(visitQuit_stmt(ctx.quit_stmt()));
+        if (ctx.show_meta_stmt()!=null) return new QueryResult(visitShow_meta_stmt(ctx.show_meta_stmt()));
         return null;
     }
 
@@ -130,7 +138,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             if(manager.currentDatabase == null){
                 throw new DatabaseNotExistException();
             }
-            String tableName = ctx.table_name().getText().toLowerCase();
+            String tableName = ctx.table_name().IDENTIFIER().getSymbol().getText().toLowerCase();
             ArrayList<Column> columnList = new ArrayList<>();
             //获取columnItem，组成columnList
             for(int i = 0; i < ctx.column_def().size();i++){
@@ -159,15 +167,15 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 columnList.add(column);
             }
             //更新主键对应column的notNull值
-            for(int i = 0;i < columnList.size();i++){
+            for (int i = 0;i < columnList.size();i++){
                 if(columnList.get(i).isPrimary()){
                     columnList.get(i).setNotNull(true);
                 }
             }
             //获取Table constraints，将对应列设置为primary与notNull
-            for(int i = 0;i<ctx.table_constraint().column_name().size();i++){
+            for (int i = 0;i<ctx.table_constraint().column_name().size();i++){
                 String primary_column = ctx.table_constraint().column_name(i).getText();
-                for(int j = 0;j<columnList.size();j++){
+                for (int j = 0;j<columnList.size();j++){
                     Column column = columnList.get(j);
                     if(primary_column.equalsIgnoreCase(column.getColumnName())){
                         column.setPrimary(1);
@@ -336,34 +344,268 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         return "Insert into " + ctx.table_name().getText() + " successfully";
     }
 
+    //? Write by musky
     /**
      * TODO
      表格项删除
      */
     @Override
     public String visitDelete_stmt(SQLParser.Delete_stmtContext ctx) {
-        return "Delete from" + ctx.table_name().getText() + "successfully";
+        String table_name = ctx.table_name().getText().toLowerCase();
+        Database db = manager.getCurrentDatabase();
+        Table table = db.get(table_name);
+        if (table == null) {
+            throw new DatabaseNotExistException();
+        }
+        if (ctx.K_WHERE() == null) {
+            return "Exception: ERROR:Delete without where";
+        }
+//        String operator = ctx.multiple_condition().condition().comparator().getText();
+//
+//        String judgeName = ctx.multiple_condition().condition().expression(0).comparer().column_full_name().column_name().getText().toLowerCase();
+//        String compareValue = ctx.multiple_condition().condition().expression(1).comparer().literal_value().getText();
+//
+//        Cell judgeValue = parseEntry(compareValue, table.columns.get(table.columnFind(judgeName)));
+//        Iterator<Row> iterator = table.iterator();
+//        ArrayList<Row> delete_list = to_operate_rows(operator,iterator, table.columnFind(judgeName), judgeValue);
+//
+//        for (Row delete_row:delete_list) {
+//            table.delete(delete_row);
+//        }
+
+
+        MultipleConditionItem whereItem = null;
+        if(ctx.multiple_condition()!=null){
+            whereItem = visitMultiple_condition(ctx.multiple_condition());
+        }
+        ArrayList<String> columnNames = new ArrayList<>();
+        ArrayList<Column> columns = table.columns;
+        for (Column c:columns) {
+            columnNames.add(c.getColumnName());
+        }
+        if (whereItem == null) {
+            return "Exception: ERROR:Delete without where";
+        } else {
+            for (Row row : table) {
+                if (whereItem.evaluate(row, columnNames)) {
+                    table.delete(row);
+                }
+            }
+        }
+        return "Delete from " + ctx.table_name().getText() + " successfully";
     }
 
     /**
-     * TODO
+     * Finished and Tested
      表格项更新
      */
     @Override
-    public String visitUpdate_stmt(SQLParser.Update_stmtContext ctx) {return null;}
+    public String visitUpdate_stmt(SQLParser.Update_stmtContext ctx) {
+        String tableName = ctx.table_name().getText();
+        Table table = manager.currentDatabase.get(tableName);
+        String columnName = ctx.column_name().getText();
+
+        //获取columnNames
+        ArrayList<String> columnNames = new ArrayList<>();
+        ArrayList<Column> columns = table.columns;
+        for (Column c:columns) {
+            columnNames.add(c.getColumnName());
+        }
+
+        //获取满足条件的行
+        MultipleConditionItem whereItem = null;
+        ArrayList<Row> rowToUpdate = new ArrayList<>();
+        if(ctx.multiple_condition()!=null){
+            whereItem = visitMultiple_condition(ctx.multiple_condition());
+        }
+
+        Iterator<Row> rowIterator = table.iterator();
+        if(whereItem==null){
+            while(rowIterator.hasNext()){
+                Row row = rowIterator.next();
+                rowToUpdate.add(row);
+            }
+        }
+        else{
+            while(rowIterator.hasNext()){
+                Row row = rowIterator.next();
+                if (whereItem.evaluate(row,columnNames)){
+                    rowToUpdate.add(row);
+                }
+            }
+        }
+
+        //对这些行进行更新
+        int index = table.Column2Index(columnName);
+        ComparerItem expr = visitExpression(ctx.expression());
+        Cell newCell = new Cell((Comparable) expr.getValue());
+        for(Row row:rowToUpdate){
+            Row newRow = new Row();
+            ArrayList<Cell> entries = row.getEntries();
+            for(int i = 0;i< entries.size();i++){
+                if(i==index){
+                    newRow.getEntries().add(newCell);
+                }
+                else{
+                    newRow.getEntries().add(entries.get(i));
+                }
+            }
+            Cell primaryCell = entries.get(table.getPrimaryIndex());
+            //System.out.println("primaryCell = " + primaryCell.toString());
+            //System.out.println("oldRow = " + row.toString());
+            //System.out.println("newRow = " + newRow.toString());
+
+            table.update(primaryCell,newRow);
+        }
+        table.persist();
+
+        return "Update " + rowToUpdate.size() + " rows";
+    }
 
     /**
      * TODO
      表格项查询
+     SELECT tableName1.AttrName1, tableName1.AttrName2…, tableName2.AttrName1, tableName2.AttrName2,…
+     FROM  tableName1 [JOIN tableName2 [ON  tableName1.attrName1 = tableName2.attrName2]]
+     [ WHERE  attrName1 = attrValue ]
+     * 以大作业说明为准，所以table_query项一定只有一个
      */
     @Override
     public QueryResult visitSelect_stmt(SQLParser.Select_stmtContext ctx) {
-        return null;
+        try{
+            //按大作业说明，只有一个tableQuery,所以只要获取第一个就行了
+            SQLParser.Table_queryContext tableQuery = ctx.table_query().get(0);
+            String firstTableName = tableQuery.table_name(0).getText();
+            Table firstTable = manager.currentDatabase.get(firstTableName);
+
+            // 生成from对应的查询表 targetTable
+            // select from 不止一个表,将多表进行连接，获取目标表targetTable
+            QueryTable targetTable = new QueryTable(firstTable);
+            ArrayList<Table> TableList = new ArrayList<>();
+            if(tableQuery.table_name().size()>1){
+                Table newfirstTable = firstTable.getColumnFullNameTable();
+                for(int i = 1;i<tableQuery.table_name().size();i++){
+                    String nowTableName = tableQuery.table_name(i).getText();
+                    Table nowTable = manager.currentDatabase.get(nowTableName);
+                    TableList.add(nowTable);
+                }
+                targetTable = newfirstTable.join(TableList);
+                //System.out.println(targetTable.toString());
+                //按 On 的条件进行筛选，删除不满足的行
+                if(tableQuery.multiple_condition()!=null){
+                    MultipleConditionItem onItem = visitMultiple_condition(tableQuery.multiple_condition());
+                    Iterator<Row> rowIterator = targetTable.results.iterator();
+                    ArrayList<String> columnNames = new ArrayList<>();
+                    for (Column column: targetTable.columns) {
+                        columnNames.add(column.getColumnName());
+                    }
+                    List<Row> rowToDelete = new ArrayList<>();
+                    while(rowIterator.hasNext()){
+                        Row row = rowIterator.next();
+                        if (!onItem.evaluate(row,columnNames)){
+                            rowToDelete.add(row);
+                        }
+                    }
+                    targetTable.results.removeAll(rowToDelete);
+                }
+            }
+            // 按 where 条件进行筛选，删除不满足的行
+            if(ctx.multiple_condition()!=null){
+                MultipleConditionItem whereItem = visitMultiple_condition(ctx.multiple_condition());
+                Iterator<Row> rowIterator = targetTable.results.iterator();
+                ArrayList<String> columnNames = new ArrayList<>();
+                for (Column column: targetTable.columns) {
+                    columnNames.add(column.getColumnName());
+                }
+                List<Row> rowToDelete = new ArrayList<>();
+                while(rowIterator.hasNext()){
+                    Row row = rowIterator.next();
+                    if (!whereItem.evaluate(row,columnNames)){
+                        rowToDelete.add(row);
+                    }
+                }
+                targetTable.results.removeAll(rowToDelete);
+            }
+            //按select进行列的筛选
+            ArrayList<Column> selectColumns = new ArrayList<>();
+            ArrayList<Row> rowList = new ArrayList<>();
+            if(ctx.result_column().get(0).getText().equals("*")){
+                selectColumns.addAll(targetTable.columns);
+                rowList.addAll(targetTable.results);
+            }
+            else{
+                //先对列进行筛选
+                ArrayList<String> selectColumnName = new ArrayList<>();
+                for (SQLParser.Result_columnContext columnContext:ctx.result_column()) {
+                    if(columnContext.column_full_name()!=null){//按大作业说明，这种情况一定存在column_full_name
+                        String columnName = columnContext.column_full_name().column_name().getText();
+                        if(columnContext.column_full_name().table_name()!=null && tableQuery.table_name().size()>1){
+                            columnName = columnContext.column_full_name().table_name().getText() + "_" + columnName;
+                        }
+                        selectColumnName.add(columnName);
+                    }
+                }
+                /*
+                System.out.print("selectColumnsName:");
+                for(String columnName:selectColumnName){
+                    System.out.print(columnName + " ");
+                }
+                System.out.println(" ");
+                */
+                //获取selectColumnName对应的index
+                ArrayList<Integer> selectColumnIndex = new ArrayList<>();
+                for (String columnName: selectColumnName) {
+                    int index = targetTable.Column2Index(columnName);
+                    selectColumns.add(targetTable.columns.get(index));
+                    selectColumnIndex.add(index);
+                }
+                /*
+                System.out.print("selectColumnIndex:");
+                for(Integer index:selectColumnIndex){
+                    System.out.print(index + " ");
+                }
+                */
+
+                //再对行按列筛选
+                Iterator<Row> rowIterator = targetTable.results.iterator();
+                while(rowIterator.hasNext()){
+                    Row row = rowIterator.next();
+                    ArrayList<Cell> Entries = row.getEntries();
+                    ArrayList<Cell> newEntries = new ArrayList<>();
+                    for (int i = 0;i<Entries.size();i++) {
+                        if(selectColumnIndex.contains(i)){
+                            //System.out.println(i+"is in selectColumnIndex");
+                            newEntries.add(Entries.get(i));
+                        }
+                    }
+                    Row newRow = new Row(newEntries);
+                    rowList.add(newRow);
+                }
+            }
+            //得到ArrayList<Column> selectColumns 为列
+            //得到ArrayList<Row> rowList 为行
+            //测试值是否正确
+            /*
+            for (Column column:selectColumns) {
+                System.out.print(column.toString() + " ");
+            }
+            System.out.println(" ");
+            for(Row row:rowList){
+                System.out.println(row.toString());
+            }
+             */
+            QueryTable queryTable = new QueryTable(rowList,selectColumns);
+            QueryTable[] queryTables = {queryTable};
+            return new QueryResult(queryTables);
+        }
+        catch(Exception e) {
+            return new QueryResult(e.getMessage());
+        }
     }
 
     /**
-     * TODO: bug -- return null?
-     * TODO: 猜测的问题是可能没进到语句的处理没进到这个函数
+     * Finished and Tested
+     *
      展示表 SHOW TABLE tableName
      */
     @Override
@@ -373,7 +615,8 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 throw new DatabaseNotExistException();
             }
             String tableName = ctx.table_name().getText();
-            return manager.currentDatabase.get(tableName).toString();
+            Table table = manager.currentDatabase.get(tableName);
+            return table.toString();
         }
         catch(Exception e){
             return e.getMessage();
@@ -406,8 +649,11 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     @Override
     public ComparerItem visitComparer(SQLParser.ComparerContext ctx){
         if(ctx.column_full_name()!=null){
-            String tableName = ctx.column_full_name().table_name().getText();
-            String columnName = ctx.column_full_name().column_name().getText();
+            String tableName = null;
+            if(ctx.column_full_name().table_name() != null){
+                tableName = ctx.column_full_name().table_name().IDENTIFIER().getText();
+            }
+            String columnName = ctx.column_full_name().column_name().IDENTIFIER().getText();
             return new ComparerItem(ComparerType.COLUMN,tableName,columnName);
         }
         else if(ctx.literal_value()!=null){
@@ -441,8 +687,32 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     (compItem2.type != ComparerType.NUMBER && compItem2.type!=ComparerType.COLUMN)) {
                 throw new TypeNotMatchException(compItem1.type, ComparerType.NUMBER);
             }
+            /*
+            String newLiteralValue;
 
-            return new ComparerItem(compItem1,compItem2,ctx.getChild(1).getText());
+            Double itemValue1 = Double.parseDouble(compItem1.literalValue);
+            Double itemValue2 = Double.parseDouble(compItem2.literalValue);
+            Double newValue=0.0;
+            String op = ctx.getChild(1).getText();
+            switch(op){
+                case "+": newValue = itemValue1+itemValue2;break;
+                case "-": newValue = itemValue1-itemValue2;break;
+                case "*": newValue = itemValue1*itemValue2;break;
+                case "/": newValue = itemValue1/itemValue2;break;
+                default:
+            }
+            if(newValue.intValue() == newValue.doubleValue()){
+                newLiteralValue=String.valueOf(newValue.intValue());
+            }
+            else{
+                newLiteralValue = newValue.toString();
+            }
+             */
+            ComparerItem newComparerItem = new ComparerItem(compItem1,compItem2,ctx.getChild(1).getText());
+            newComparerItem.type = ComparerType.NUMBER;
+            //newComparerItem.literalValue=newLiteralValue;
+
+            return newComparerItem;
         }
     }
 
@@ -461,8 +731,9 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
         MultipleConditionItem m1 = (MultipleConditionItem) visit(ctx.getChild(0));
         MultipleConditionItem m2 = (MultipleConditionItem) visit(ctx.getChild(2));
-        return new MultipleConditionItem(m1,m2,ctx.getChild(1).getText());
+        return new MultipleConditionItem(m1, m2, ctx.getChild(1).getText());
     }
+
 }
 
 
