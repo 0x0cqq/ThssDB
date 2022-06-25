@@ -1,17 +1,13 @@
 package cn.edu.thssdb.parser;
 
-import cn.edu.thssdb.exception.DatabaseNotExistException;
 import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.schema.Database;
 import cn.edu.thssdb.schema.Manager;
-import cn.edu.thssdb.schema.Table;
 import cn.edu.thssdb.common.Global;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 

@@ -478,16 +478,15 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                 // 生成from对应的查询表 targetTable
                 // select from 不止一个表,将多表进行连接，获取目标表targetTable
                 QueryTable targetTable = new QueryTable(firstTable);
-                ArrayList<Table> TableList = new ArrayList<>();
                 if (tableQuery.table_name().size() > 1) {
-                    Table newfirstTable = firstTable.getColumnFullNameTable();
+                    Table newFirstTable = firstTable.getColumnFullNameTable();
+                    targetTable = new QueryTable(newFirstTable);
                     for (int i = 1; i < tableQuery.table_name().size(); i++) {
                         String nowTableName = tableQuery.table_name(i).getText();
                         try(Table.TableHandler nowTable = db.getDatabase().get(nowTableName)) {
-                            TableList.add(nowTable.getTable());
+                            targetTable.join(nowTable.getTable());
                         }
                     }
-                    targetTable = newfirstTable.join(TableList);
                     //System.out.println(targetTable.toString());
                     //按 On 的条件进行筛选，删除不满足的行
                     if (tableQuery.multiple_condition() != null) {

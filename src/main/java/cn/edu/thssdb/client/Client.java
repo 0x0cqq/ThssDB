@@ -72,7 +72,7 @@ public class Client {
             getTime();
             break;
           case Global.QUIT:
-            open = false;
+            quit("quit");
             break;
           case Global.CONNECT:
             connect();
@@ -86,10 +86,10 @@ public class Client {
         }
         long endTime = System.currentTimeMillis();
         println("It costs " + (endTime - startTime) + " ms.");
+        transport.close();
         if (!open) {
           break;
         }
-        transport.close();
       }
     } catch (TTransportException e) {
       logger.error(e.getMessage());
@@ -121,6 +121,22 @@ public class Client {
       if (resp.getStatus().code == Global.SUCCESS_CODE)
         session = resp.getSessionId();
     } catch (TException e) {
+      logger.error(e.getMessage());
+    }
+  }
+
+  public static void quit(String msg) {
+    if (session < 0) {
+      println("You're not connected.");
+      return;
+    }
+    try {
+      ExecuteStatementReq req = new ExecuteStatementReq();
+      req.setSessionId(session);
+      req.setStatement(msg);
+      ExecuteStatementResp resp = client.executeStatement(req);
+      println(resp.toString());
+    } catch (Exception e){
       logger.error(e.getMessage());
     }
   }

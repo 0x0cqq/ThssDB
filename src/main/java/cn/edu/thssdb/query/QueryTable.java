@@ -1,15 +1,11 @@
 package cn.edu.thssdb.query;
 
-import cn.edu.thssdb.common.Pair;
-import cn.edu.thssdb.exception.KeyNotExistException;
-import cn.edu.thssdb.schema.Cell;
 import cn.edu.thssdb.schema.Column;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.schema.Table;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -66,5 +62,15 @@ public class QueryTable implements Iterator<Row> {
       }
     }
     return new QueryTable(newRowList,newColumnList);
+  }
+  /**
+   * 表的笛卡尔积连接操作
+   * 由一个 QueryTable 调用，参数为其将要连接的表（不包括自己）
+   * 调用该操作的表的列名需要是tableName_columnName的形式
+   */
+  public void join(Table table) {
+    Table newTable = table.getColumnFullNameTable();
+    QueryTable newTargetTable = new QueryTable(newTable);
+    this.combineQueryTable(newTargetTable);
   }
 }

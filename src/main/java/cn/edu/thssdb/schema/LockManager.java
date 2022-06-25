@@ -1,7 +1,5 @@
 package cn.edu.thssdb.schema;
 
-import org.apache.thrift.transport.TSeekableFile;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;

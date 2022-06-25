@@ -3,8 +3,6 @@ package cn.edu.thssdb.schema;
 import cn.edu.thssdb.exception.DuplicateTableException;
 import cn.edu.thssdb.exception.FileIOException;
 import cn.edu.thssdb.exception.TableNotExistException;
-import cn.edu.thssdb.query.QueryResult;
-import cn.edu.thssdb.query.QueryTable;
 import cn.edu.thssdb.common.Global;
 
 import java.io.*;
@@ -12,9 +10,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-
-// TODO: lock control
-// TODO Query: please also add other functions needed at Database level.
 
 public class Database {
 
@@ -93,6 +88,8 @@ public class Database {
         throw new FileIOException(filename);
       }
     }
+    // 清除日志
+    databaseLogger.clearLog();
   }
 
   public String getName() {
@@ -144,13 +141,8 @@ public class Database {
         File file = new File(filename);
         if (file.isFile() && !file.delete())
           throw new FileIOException(tableName + " _meta  when drop a table in database");
-
-        try {
-          tableLockManager.getWriteLock(session, tb);
-          table.dropTable();
-        } catch (Exception e) {
-
-        }
+        tableLockManager.getWriteLock(session, tb);
+        table.dropTable();
       }
       this.tableMap.remove(tableName);
     } finally {
@@ -228,21 +220,16 @@ public class Database {
 
   public void quit() {
     try {
-      this.lock.writeLock().lock();
-      for (Table table : this.tableMap.values())
-        table.persist();
+      this.lock.readLock().lock();
+      for (String tableName : this.tableMap.keySet()){
+        try(Table.TableHandler tb = get(tableName)){
+          tb.getTable().persist();
+        }
+      }
       this.persist();
     } finally {
-      this.lock.writeLock().unlock();
+      this.lock.readLock().unlock();
     }
-  }
-
-
-  // TODO Query: please also add other functions needed at Database level.
-  public String select(QueryTable[] queryTables) {
-    // TODO: support select operations
-    QueryResult queryResult = new QueryResult(queryTables);
-    return null;
   }
 
   public LockManager getTableLockManager(){

@@ -3,7 +3,6 @@ package cn.edu.thssdb.schema;
 import cn.edu.thssdb.exception.DatabaseNotExistException;
 import cn.edu.thssdb.exception.FileIOException;
 import cn.edu.thssdb.parser.SQLHandler;
-import cn.edu.thssdb.query.QueryResult;
 import cn.edu.thssdb.common.Global;
 
 import java.io.*;
@@ -25,7 +24,6 @@ public class Manager {
   }
 
   public Manager() {
-    // TODO: init possible additional variables
     databases = new HashMap<>();
     currentDatabase = null;
     sqlHandler = new SQLHandler(this);
@@ -53,12 +51,12 @@ public class Manager {
 
   public void switchDatabase(String databaseName) {
     try {
-      // TODO: add lock control ( Does that really needed?)
+      lock.readLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
       currentDatabase = databases.get(databaseName);
     } finally {
-      // TODO: add lock control ( Does that really needed?)
+      lock.writeLock().unlock();
     }
   }
 
@@ -86,6 +84,7 @@ public class Manager {
         database.quit();
       persist();
       databases.clear();
+      currentDatabase = null;
     } finally {
       lock.writeLock().unlock();
     }
@@ -119,14 +118,9 @@ public class Manager {
       if (!databases.containsKey(databaseName))
         databases.put(databaseName, new Database(databaseName));
       if (currentDatabase == null) {
-        try {
-          // TODO: add lock control
-          if (!databases.containsKey(databaseName))
-            throw new DatabaseNotExistException(databaseName);
-          currentDatabase = databases.get(databaseName);
-        } finally {
-          // TODO: add lock control
-        }
+        if (!databases.containsKey(databaseName))
+          throw new DatabaseNotExistException(databaseName);
+        currentDatabase = databases.get(databaseName);
       }
     } finally {
       lock.writeLock().unlock();

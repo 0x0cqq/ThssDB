@@ -1,10 +1,2 @@
 begin transaction
 commit
-begin transaction
-insert into teacher values (4, 'Dave' , 'Math', 1000)
-commit
-begin transaction
-commit
-begin transaction
-insert into teacher values (5, 'Eve', 'God', 10000)
-commit
