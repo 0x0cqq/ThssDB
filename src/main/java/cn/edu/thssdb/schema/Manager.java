@@ -46,6 +46,7 @@ public class Manager {
         db.getDatabase().dropDatabase();
       }
       databases.remove(databaseName);
+      this.persist();
     } finally {
       lock.writeLock().unlock();
     }

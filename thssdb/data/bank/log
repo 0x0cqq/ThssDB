@@ -1,0 +1,48 @@
+begin transaction
+insert into branch('ChinaBranch','Beijing')
+commit
+begin transaction
+insert into branch values('ChinaBranch','Beijing')
+commit
+begin transaction
+insert into branch values('AmericaBranch','Washington')
+commit
+begin transaction
+insert into branch values('FranceBranch','Paris')
+commit
+begin transaction
+insert into account values(10000,1,'AmericaBranch')
+commit
+begin transaction
+insert into account values(10000,1,'AmericaBranch',1500)
+commit
+begin transaction
+insert into account values(10001,1,'AmericaBranch',1000)
+commit
+begin transaction
+insert into account values(10002,1,'ChinaBranch',2000)
+commit
+begin transaction
+insert into account values(10003,2,'ChinaBranch',2000)
+commit
+begin transaction
+insert into customer values(1,'Alice')
+commit
+begin transaction
+insert into customer values(2,'Bob')
+commit
+begin transaction
+insert into customer values(3,'Carol')
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit

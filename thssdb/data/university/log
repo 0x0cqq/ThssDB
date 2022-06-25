@@ -1,21 +1,62 @@
 begin transaction
 commit
 begin transaction
-insert into student values(6,'Francis','SS')
-commit
-begin transaction
-delete from student where id>5
-commit
-begin transaction
-insert into student values(6,'Francis','SS')
 commit
 begin transaction
 commit
 begin transaction
-update student set name = 'Alice' where id=1
 commit
 begin transaction
-update student set name ='Bob' where name = 'Carol'
+commit
+begin transaction
+insert into instructor values('Carol','Eve')
+commit
+begin transaction
+update instructor set teacher_name='Cleck' where teacher_name='Black'
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+delete from student where id>4
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+update instructor set teacher_name = 'Eve' where teacher_name='Clerk'
+commit
+begin transaction
+commit
+begin transaction
+update teacher set salary=3000 where id>4
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+update teacher set dept='Physics' where dept='God'
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+update set teacher_name='Eve' where teacher_name='Cleck'
+commit
+begin transaction
+update instructor set teacher_name='Eve' where teacher_name='Cleck'
+commit
+begin transaction
+commit
+begin transaction
 commit
 begin transaction
 commit

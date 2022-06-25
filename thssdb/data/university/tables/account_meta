@@ -1,4 +1,0 @@
-id,INT,1,true,0
-customer_name,STRING,0,false,20
-branch_name,STRING,0,false,20
-balance,DOUBLE,0,false,0

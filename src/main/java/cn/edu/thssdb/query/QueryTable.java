@@ -68,9 +68,9 @@ public class QueryTable implements Iterator<Row> {
    * 由一个 QueryTable 调用，参数为其将要连接的表（不包括自己）
    * 调用该操作的表的列名需要是tableName_columnName的形式
    */
-  public void join(Table table) {
+  public QueryTable join(Table table) {
     Table newTable = table.getColumnFullNameTable();
     QueryTable newTargetTable = new QueryTable(newTable);
-    this.combineQueryTable(newTargetTable);
+    return this.combineQueryTable(newTargetTable);
   }
 }

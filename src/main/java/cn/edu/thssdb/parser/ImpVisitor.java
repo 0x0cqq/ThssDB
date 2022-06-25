@@ -484,10 +484,10 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                     for (int i = 1; i < tableQuery.table_name().size(); i++) {
                         String nowTableName = tableQuery.table_name(i).getText();
                         try(Table.TableHandler nowTable = db.getDatabase().get(nowTableName)) {
-                            targetTable.join(nowTable.getTable());
+                            targetTable = targetTable.join(nowTable.getTable());
                         }
                     }
-                    //System.out.println(targetTable.toString());
+                    System.out.println(targetTable.toString());
                     //按 On 的条件进行筛选，删除不满足的行
                     if (tableQuery.multiple_condition() != null) {
                         MultipleConditionItem onItem = visitMultiple_condition(tableQuery.multiple_condition());

@@ -1,0 +1,4 @@
+account,INT,1,true,0
+c_id,INT,0,false,0
+branch_name,STRING,0,false,20
+balance,INT,0,false,0
