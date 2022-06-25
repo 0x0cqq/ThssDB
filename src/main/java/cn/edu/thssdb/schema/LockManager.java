@@ -42,11 +42,13 @@ public class LockManager {
 
     public void getWriteLock(Long session, Table.TableHandler tb) {
         Boolean newSetLock = tb.setWriteLock();
+        if(!newSetLock) return;
         if(!writeLockList.containsKey(session)) {
             writeLockList.put(session, new ArrayList<>());
         }
         ArrayList<ReentrantReadWriteLock.WriteLock> currentSessionWriteLockList = writeLockList.get(session);
         currentSessionWriteLockList.add(tb.getTable().lock.writeLock());
+        writeLockList.put(session, currentSessionWriteLockList);
     }
 
     public void releaseWriteLock(Long session, Table.TableHandler tb) {
@@ -64,9 +66,13 @@ public class LockManager {
         ArrayList<ReentrantReadWriteLock.WriteLock> sessionLockList = writeLockList.get(session);
         for(ReentrantReadWriteLock.WriteLock lock : sessionLockList){
             lock.unlock();
+            // System.out.println("release write lock from lock manager" + lock.toString());
         }
         sessionLockList.clear();
         writeLockList.put(session, sessionLockList);
+        if(writeLockList.get(session).size() > 0){
+            System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!wrong size");
+        }
     }
     public void releaseSessionAllReadLock(Long session) {
         if(!readLockList.containsKey(session)){
