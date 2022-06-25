@@ -41,7 +41,7 @@ public class MultipleConditionItem {
     }
 
     /**
-     * TODO: test
+     *
      *判断一行是否满足 multiConditions 条件
      *方法：递归地判断子结点是否满足
      */
