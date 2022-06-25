@@ -1,6 +1,5 @@
 package cn.edu.thssdb.parser.item;
 
-import cn.edu.thssdb.exception.IndexExceedLimitException;
 import cn.edu.thssdb.exception.TypeNotMatchException;
 import cn.edu.thssdb.type.ComparerType;
 import cn.edu.thssdb.schema.Row;
