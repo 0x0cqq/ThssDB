@@ -625,9 +625,9 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public String visitShow_table_stmt(SQLParser.Show_table_stmtContext ctx){
-        try{
-
-            return null;
+        String databaseName = ctx.database_name().getText();
+        try(Database.DatabaseHandler db = manager.get(databaseName)){
+            return db.getDatabase().getTableInfo();
         }
         catch(Exception e){
             return e.getMessage();
@@ -640,7 +640,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     @Override
     public String visitShow_db_stmt(SQLParser.Show_db_stmtContext ctx){
         try{
-            return null;
+            return manager.getDatabaseInfo();
         }
         catch(Exception e){
             return e.getMessage();

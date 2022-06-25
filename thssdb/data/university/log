@@ -83,3 +83,16 @@ begin transaction
 commit
 begin transaction
 commit
+begin transaction
+commit
+begin transaction
+delete from branch where city ='HongKong'
+commit
+begin transaction
+commit
+begin transaction
+insert into branch values('BeijingBranch','Beijing')
+commit
+begin transaction
+update branch set city='Shanghai' where city='Beijing'
+commit

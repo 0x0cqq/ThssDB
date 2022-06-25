@@ -5,9 +5,11 @@ import cn.edu.thssdb.exception.FileIOException;
 import cn.edu.thssdb.exception.TableNotExistException;
 import cn.edu.thssdb.common.Global;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
@@ -31,7 +33,6 @@ public class Database {
       if(write) {
         lock.writeLock().lock();
       }
-
     }
 
     public Database getDatabase() {
@@ -261,4 +262,14 @@ public class Database {
         result.append(table.toString());
     return result.toString() + "}\n";
   }
+
+  public String getTableInfo(){
+    try{
+      this.lock.readLock().lock();
+      return this.toString();
+    } finally{
+      this.lock.readLock().unlock();
+    }
+  }
+
 }

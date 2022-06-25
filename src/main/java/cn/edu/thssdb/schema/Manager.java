@@ -5,9 +5,11 @@ import cn.edu.thssdb.exception.FileIOException;
 import cn.edu.thssdb.parser.SQLHandler;
 import cn.edu.thssdb.common.Global;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
@@ -51,7 +53,7 @@ public class Manager {
 
   public void switchDatabase(String databaseName) {
     try {
-      lock.readLock().lock();
+      lock.writeLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
       currentDatabase = databases.get(databaseName);
@@ -112,6 +114,19 @@ public class Manager {
     }
   }
 
+  public String getDatabaseInfo(){
+    try{
+      lock.readLock().lock();
+      String DatabaseInfo="You have databases below:\n";
+      for(Map.Entry<String, Database> entry : databases.entrySet()){
+        DatabaseInfo = DatabaseInfo + entry.getKey() + "\n";
+      }
+      return DatabaseInfo;
+    }
+    finally{
+      lock.readLock().unlock();
+    }
+  }
   public void createDatabaseIfNotExists(String databaseName) {
     try {
       lock.writeLock().lock();
@@ -187,6 +202,11 @@ public class Manager {
       } catch( Exception e ) {
         System.out.println("error when: " + statement);
       }
+    }
+    try{
+      sqlHandler.evaluate("commit",-1);
+    }catch(Exception ignored){
+
     }
   }
 
