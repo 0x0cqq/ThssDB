@@ -6,9 +6,7 @@ import cn.edu.thssdb.exception.TypeNotMatchException;
 import cn.edu.thssdb.schema.Row;
 import cn.edu.thssdb.type.ComparerType;
 
-import java.awt.*;
 import java.util.ArrayList;
-import java.util.concurrent.locks.Condition;
 
 public class ConditionItem {
     public String comparator;//{> >= < <= == <>}

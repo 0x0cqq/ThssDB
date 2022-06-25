@@ -3,8 +3,6 @@ package cn.edu.thssdb.schema;
 import cn.edu.thssdb.exception.DuplicateTableException;
 import cn.edu.thssdb.exception.FileIOException;
 import cn.edu.thssdb.exception.TableNotExistException;
-import cn.edu.thssdb.query.QueryResult;
-import cn.edu.thssdb.query.QueryTable;
 import cn.edu.thssdb.common.Global;
 
 import java.io.*;
@@ -13,22 +11,62 @@ import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
-// TODO: lock control
-// TODO Query: please also add other functions needed at Database level.
-
 public class Database {
 
-  private String databaseName;
+  private String databaseName; // 数据库名称
   private HashMap<String, Table> tableMap;
-  ReentrantReadWriteLock lock;
+  private LockManager tableLockManager;
+  public Logger databaseLogger;
+  private ReentrantReadWriteLock lock;
+
+  public class DatabaseHandler implements AutoCloseable{
+    private Boolean haveReadLock;
+    private Boolean haveWriteLock;
+    public DatabaseHandler(Boolean read, Boolean write){
+      this.haveReadLock = read;
+      this.haveWriteLock = write;
+      if(read){
+        lock.readLock().lock();
+      }
+      if(write) {
+        lock.writeLock().lock();
+      }
+
+    }
+
+    public Database getDatabase() {
+      return Database.this;
+    }
+    // 当使用 try-with-resources 的时候
+    @Override
+    public void close() {
+      if(haveWriteLock) {
+        lock.writeLock().unlock();
+        haveWriteLock = false;
+      }
+      if(haveReadLock) {
+        lock.readLock().unlock();
+        haveReadLock = false;
+      }
+    }
+  }
+
+  public DatabaseHandler getReadHandler() {
+    return new DatabaseHandler(true, false);
+  }
+  public DatabaseHandler getWriteHandler() {
+    return new DatabaseHandler(true, false);
+  }
 
   public Database(String databaseName) {
     this.databaseName = databaseName;
     this.tableMap = new HashMap<>();
     this.lock = new ReentrantReadWriteLock();
+    this.tableLockManager = new LockManager(this);
     File tableFolder = new File(this.getDatabaseTableFolderPath());
     if(!tableFolder.exists())
       tableFolder.mkdirs();
+    this.databaseLogger = new Logger(this.getDatabaseDirPath(),"log");
     recover();
   }
 
@@ -50,57 +88,88 @@ public class Database {
         throw new FileIOException(filename);
       }
     }
+    // 清除日志
+    databaseLogger.clearLog();
   }
 
   public String getName() {
     return databaseName;
   }
-
+  
+  // 创建表。
+  // 需要拥有 Database 写的权限
   public void create(String tableName, Column[] columns) {
     try {
-      // TODO add lock control.
+      // 获取写锁
+      this.lock.writeLock().lock();
       if (this.tableMap.containsKey(tableName))
         throw new DuplicateTableException(tableName);
       Table table = new Table(this.databaseName, tableName, columns);
       this.tableMap.put(tableName, table);
       this.persist();
     } finally {
-      // TODO add lock control.
+      // 丢弃写锁
+      this.lock.writeLock().lock();
     }
   }
 
-  public Table get(String tableName) {
+  // 根据 Table 的名称获取 Table 变量
+  // 需要拥有读的锁。
+  public Table.TableHandler get(String tableName) {
     try {
-      // TODO add lock control.
+      // 获取读锁
+      this.lock.readLock().lock();
       if (!this.tableMap.containsKey(tableName))
         throw new TableNotExistException(tableName);
-      return this.tableMap.get(tableName);
+      return this.tableMap.get(tableName).getTableHandler();
     } finally {
-      // TODO add lock control.
+      // 释放读锁
+      this.lock.readLock().unlock();
     }
   }
 
-  public void drop(String tableName) {
+  // 根据 TableName 丢弃一张表
+  public void drop(Long session, String tableName) {
     try {
-      // TODO add lock control.
+      // 需要有数据库的写锁
+      this.lock.writeLock().lock();
       if (!this.tableMap.containsKey(tableName))
         throw new TableNotExistException(tableName);
-      Table table = this.tableMap.get(tableName);
-      String filename = table.getTableMetaPath();
-      File file = new File(filename);
-      if (file.isFile() && !file.delete())
-        throw new FileIOException(tableName + " _meta  when drop a table in database");
-
-      table.dropTable();
+      try(Table.TableHandler tb = this.get(tableName)) {
+        Table table = tb.getTable();
+        String filename = table.getTableMetaPath();
+        File file = new File(filename);
+        if (file.isFile() && !file.delete())
+          throw new FileIOException(tableName + " _meta  when drop a table in database");
+        tableLockManager.getWriteLock(session, tb);
+        table.dropTable();
+      }
       this.tableMap.remove(tableName);
     } finally {
-      // TODO add lock control.
+      // 释放写锁
+      this.lock.writeLock().unlock();
     }
   }
 
+  public void tableInsert(Long session, Table.TableHandler tb, Row row){
+    tableLockManager.getWriteLock(session, tb);
+    tb.getTable().insert(row);
+  }
+  public void tableDelete(Long session, Table.TableHandler tb, Row row) {
+    tableLockManager.getWriteLock(session, tb);
+    tb.getTable().delete(row);
+  }
+
+  public void tableUpdate(Long session, Table.TableHandler tb, Cell primaryCell, Row row) {
+    tableLockManager.getWriteLock(session, tb);
+    tb.getTable().update(primaryCell, row);
+  }
+
+  // 丢弃整个数据库
   public void dropDatabase() {
     try {
-      // TODO add lock control.
+      // 需要有数据库的写锁
+      this.lock.writeLock().lock();
       for (Table table : this.tableMap.values()) {
         File file = new File(table.getTableMetaPath());
         if (file.isFile()&&!file.delete())
@@ -110,17 +179,18 @@ public class Database {
       this.tableMap.clear();
       this.tableMap = null;
     } finally {
-      // TODO add lock control.
+      this.lock.writeLock().unlock();
     }
   }
 
-  private void recover() {
+  public void recover() {
     System.out.println("! try to recover database " + this.databaseName);
     File tableFolder = new File(this.getDatabaseTableFolderPath());
     File[] files = tableFolder.listFiles();
 //        for(File f: files) System.out.println("...." + f.getName());
     if (files == null) return;
 
+    // 找到 table 的 meta, 并且从文件中恢复数据库
     for (File file : files) {
       if (!file.isFile() || !file.getName().endsWith(Global.META_SUFFIX)) continue;
       try {
@@ -147,37 +217,34 @@ public class Database {
     }
   }
 
+
   public void quit() {
     try {
-      this.lock.writeLock().lock();
-      for (Table table : this.tableMap.values())
-        table.persist();
+      this.lock.readLock().lock();
+      for (String tableName : this.tableMap.keySet()){
+        try(Table.TableHandler tb = get(tableName)){
+          tb.getTable().persist();
+        }
+      }
       this.persist();
     } finally {
-      this.lock.writeLock().unlock();
+      this.lock.readLock().unlock();
     }
   }
 
-
-  // TODO Query: please also add other functions needed at Database level.
-  public String select(QueryTable[] queryTables) {
-    // TODO: support select operations
-    QueryResult queryResult = new QueryResult(queryTables);
-    return null;
+  public LockManager getTableLockManager(){
+    return this.tableLockManager;
   }
 
-
-
-
   // Find position
-  public String getDatabasePath(){
+  public String getDatabaseDirPath(){
     return Global.DBMS_DIR + File.separator + "data" + File.separator + this.databaseName;
   }
   public String getDatabaseTableFolderPath(){
-    return this.getDatabasePath() + File.separator + "tables";
+    return this.getDatabaseDirPath() + File.separator + "tables";
   }
-  public String getDatabaseLogFilePath(){
-    return this.getDatabasePath() + File.separator + "log";
+  private String getDatabaseLogFilePath(){
+    return this.getDatabaseDirPath() + File.separator + "log";
   }
   public static String getDatabaseLogFilePath(String databaseName){
     return Global.DBMS_DIR + File.separator + "data" + File.separator + databaseName + File.separator + "log";

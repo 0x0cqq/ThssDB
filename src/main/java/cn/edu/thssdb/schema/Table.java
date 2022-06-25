@@ -4,10 +4,8 @@ import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.index.BPlusTree;
 import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.common.Pair;
-import cn.edu.thssdb.query.QueryTable;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -15,26 +13,54 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static cn.edu.thssdb.type.ColumnType.STRING;
 
-
-// TODO lock control, variables init.
-
 public class Table implements Iterable<Row> {
-  ReentrantReadWriteLock lock;
+  public ReentrantReadWriteLock lock;
   private String databaseName;
   public String tableName;
   public ArrayList<Column> columns;
   public BPlusTree<Cell, Row> index;
   private int primaryIndex;
 
-  // ADD lock variables for S, X locks and etc here.
+  public class TableHandler implements AutoCloseable {
+    private Boolean haveReadLock;
+    private Boolean haveWriteLock;
+    public TableHandler(Boolean read, Boolean write){
+      this.haveReadLock = read;
+      this.haveWriteLock = write;
+      if(read){
+        lock.readLock().lock();
+      }
+      if(write) {
+        lock.writeLock().lock();
+      }
+    }
+    public Boolean setWriteLock() {
+      if(this.haveReadLock){
+        lock.readLock().unlock();
+        this.haveReadLock = false;
+      }
+      if(lock.isWriteLockedByCurrentThread()){
+        return false;
+      }
+      lock.writeLock().lock();
+      this.haveWriteLock = true;
+      return true;
+    }
+    public Table getTable(){ return Table.this; }
+    @Override
+    public void close() {
+      // 这里可以根据不同的隔离级别选择不同的 Close 方式
+      // 目前只支持 Read Committed
+      if(haveReadLock) {
+        lock.readLock().unlock();
+        haveReadLock = false;
+      }
+    }
+  }
 
-  // TODO: table/tuple level locks
-  public Boolean testSLock(Long sessionId){ return false;}
-  public void takeSLock(Long sessionId) {}
-  public void releaseSLock(Long sessionId){}
-  public Boolean testXLock(Long sessionId){ return false;}
-  public Boolean takeXLock(Long sessionId){ return false;} // 在test成功前提下拿X锁。返回值false表示session之前已拥有这个表的X锁。
-  public void releaseXLock(Long sessionId){}
+  public TableHandler getTableHandler() {
+    return new TableHandler(true, false);
+  }
 
 
   // Initiate: Table, recover
@@ -57,21 +83,14 @@ public class Table implements Iterable<Row> {
     if(this.primaryIndex < 0)
       throw new MultiPrimaryKeyException(this.tableName);
 
-    // TODO initiate lock status.
-
     recover();
   }
 
-  private void recover() {
+  public void recover() {
     // read from disk for recovering
-      try {
-        // TODO lock control
-        ArrayList<Row> rowsOnDisk = deserialize();
-        for(Row row: rowsOnDisk)
-          this.index.put(row.getEntries().get(this.primaryIndex), row);
-      }finally {
-        // TODO lock control
-      }
+    ArrayList<Row> rowsOnDisk = deserialize();
+    for(Row row: rowsOnDisk)
+      this.index.put(row.getEntries().get(this.primaryIndex), row);
   }
 
   public int getPrimaryIndex(){
@@ -79,79 +98,36 @@ public class Table implements Iterable<Row> {
   }
 
   // Operations: get, insert, delete, update, dropTable, you can add other operations.
-  // remember to use locks to fill the TODOs
 
   public Row get(Cell primaryCell){
-    try {
-      // TODO lock control
-      return this.index.get(primaryCell);
-    }finally {
-      // TODO lock control
-    }
+    return this.index.get(primaryCell);
   }
   public void insert(Row row) {
-    try {
-      // TODO lock control
-      this.checkRowValidInTable(row);
-      if(this.containsRow(row))
-        throw new DuplicateKeyException();
-      this.index.put(row.getEntries().get(this.primaryIndex), row);
-      }finally {
-      // TODO lock control
-    }
+    this.checkRowValidInTable(row);
+    if(this.containsRow(row))
+      throw new DuplicateKeyException();
+    this.index.put(row.getEntries().get(this.primaryIndex), row);
   }
 
-
   public void delete(Row row) {
-    try {
-      // TODO lock control.
-      this.checkRowValidInTable(row);
-      if(!this.containsRow(row))
-        throw new KeyNotExistException();
-      this.index.remove(row.getEntries().get(this.primaryIndex));
-    }finally {
-      // TODO lock control.
-    }
+    this.checkRowValidInTable(row);
+    if(!this.containsRow(row))
+      throw new KeyNotExistException();
+    this.index.remove(row.getEntries().get(this.primaryIndex));
   }
 
   public void update(Cell primaryCell, Row newRow) {
-    try {
-      // TODO lock control.
-      this.checkRowValidInTable(newRow);
-      Row oldRow = this.get(primaryCell);
-      /** 感觉这里有问题，按这个就只能修改主键了，所以我给他注释了
-      if(this.containsRow(newRow))
-        throw new DuplicateKeyException();   // 要么删并插入，要么抛出异常
-       */
-      this.index.remove(primaryCell);
-      this.index.put(newRow.getEntries().get(this.primaryIndex), newRow);
-    }finally {
-      // TODO lock control.
-    }
+    this.checkRowValidInTable(newRow);
+    Row oldRow = this.get(primaryCell);
+    /* 感觉这里有问题，按这个就只能修改主键了，所以我给他注释了
+     if(this.containsRow(newRow))
+     throw new DuplicateKeyException();   // 要么删并插入，要么抛出异常
+     */
+    this.index.remove(primaryCell);
+    this.index.put(newRow.getEntries().get(this.primaryIndex), newRow);
   }
 
-  /**
-   * 表的笛卡尔积连接操作
-   * 由一个表调用，参数为其将要连接的表（不包括自己）
-   * 调用该操作的表的列名需要是tableName_columnName的形式
-   * 需要获取读锁
-   * @return 连接后的新表
-   */
-  public QueryTable join(ArrayList<Table> tables){
-    try{
-      // TODO lock control
-      QueryTable targetTable = new QueryTable(this);
-      for(Table table:tables){
-        Table newTable = table.getColumnFullNameTable();
-        QueryTable newTargetTable = new QueryTable(newTable);
-        targetTable = targetTable.combineQueryTable(newTargetTable);
-      }
-      return targetTable;
-    }finally{
-      // TODO lock control
 
-    }
-  }
   /**
    * 将表的列名换为tableName_columnName的形式
    * 这里似乎不应该加锁
@@ -164,7 +140,7 @@ public class Table implements Iterable<Row> {
       Column newColumn = new Column(newColumnName,column.getColumnType(),column.getPrimary(),column.cantBeNull(),column.getMaxLength());
       newColumns.add(newColumn);
     }
-    Column[] newColumn= newColumns.toArray(new Column[0]);
+    Column[] newColumn = newColumns.toArray(new Column[0]);
     Table newTable = new Table(this.databaseName,this.tableName,newColumn);
     newTable.index = this.index;
     //newTable.lock = this.lock;?
@@ -217,28 +193,16 @@ public class Table implements Iterable<Row> {
   }
 
   public void persist(){
-    try {
-      // TODO add lock control.
-      serialize();
-    }
-    finally {
-      // TODO add lock control.
-    }
+    serialize();
   }
 
   public void dropTable(){ // remove table data file
-    try {
-      // TODO lock control.
-      File tableFolder = new File(this.getTableFolderPath());
-      if (!tableFolder.exists() ? !tableFolder.mkdirs() : !tableFolder.isDirectory())
-        throw new FileIOException(this.getTableFolderPath() + " when dropTable");
-      File tableFile = new File(this.getTablePath());
-      if(tableFile.exists() && !tableFile.delete())
-        throw new FileIOException(this.getTablePath() + " when dropTable");
-    }
-    finally {
-      // TODO lock control.
-    }
+    File tableFolder = new File(this.getTableFolderPath());
+    if (!tableFolder.exists() ? !tableFolder.mkdirs() : !tableFolder.isDirectory())
+      throw new FileIOException(this.getTableFolderPath() + " when dropTable");
+    File tableFile = new File(this.getTablePath());
+    if(tableFile.exists() && !tableFile.delete())
+      throw new FileIOException(this.getTablePath() + " when dropTable");
   }
 
   public int Column2Index(String columnName){
