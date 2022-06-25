@@ -62,3 +62,80 @@ begin transaction
 commit
 begin transaction
 commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+insert into student(id,name) values(5,'Eval')
+commit
+begin transaction
+commit
+begin transaction
+update student set dept = 'Physics' where dept=null
+commit
+begin transaction
+update student set dept='Physics' where dept=null
+commit
+begin transaction
+commit
+begin transaction
+delete from student where dept=null
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+delete from student where id=5
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+insert into student(id,name) values(5,'Eval')
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+delete from student where id=5
+commit
+begin transaction
+insert into student(id,name) values(5,'Eval')
+commit
+begin transaction
+commit
+begin transaction
+delete from student where id>4
+commit
+begin transaction
+commit
+begin transaction
+insert into student(id,name) values(5,'Eval')
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+update student set dept='Physics' where dept=null
+commit
+begin transaction
+commit
+begin transaction
+commit

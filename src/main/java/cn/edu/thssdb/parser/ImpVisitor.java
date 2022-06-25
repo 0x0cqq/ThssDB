@@ -273,7 +273,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
                         }
                         //初始化value_entry
                         for (int i = 0; i < table.columns.size(); i++) {
-                            Cell cell = new Cell(Global.ENTRY_NULL);
+                            Cell cell = new Cell();
                             value_entry.add(cell);
                         }
                         for (int i = 0; i < ctx.column_name().size(); i++) {
