@@ -30,20 +30,26 @@ public class Table implements Iterable<Row> {
       this.haveReadLock = read;
       this.haveWriteLock = write;
       if(read){
+        //System.out.println("get read lock" + this.table.tableName);
         this.table.lock.readLock().lock();
       }
       if(write) {
+        //System.out.println("get write lock" + this.table.tableName);
+
         this.table.lock.writeLock().lock();
       }
     }
     public Boolean setWriteLock() {
       if(this.haveReadLock){
+        //System.out.println("release read lock" + this.table.tableName);
         this.table.lock.readLock().unlock();
         this.haveReadLock = false;
       }
-      if(lock.isWriteLockedByCurrentThread()){
+      if(this.table.lock.isWriteLockedByCurrentThread()){
         return false;
       }
+      //System.out.println("get write lock " + this.table.tableName);
+
       this.table.lock.writeLock().lock();
       this.haveWriteLock = true;
       return true;
@@ -54,6 +60,7 @@ public class Table implements Iterable<Row> {
       // 这里可以根据不同的隔离级别选择不同的 Close 方式
       // 目前只支持 Read Committed
       if(this.haveReadLock) {
+        // System.out.println("release read lock " + this.table.tableName);
         this.table.lock.readLock().unlock();
         this.haveReadLock = false;
       }

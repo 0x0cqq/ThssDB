@@ -28,7 +28,7 @@ public class SQLHandler {
 
     public ArrayList<QueryResult> evaluate(String statement, long session) {
         String stmt_head = statement.split("\\s+")[0];
-        if (Arrays.asList(CMD_SET_WITHOUT_SELECT).contains(stmt_head.toLowerCase()) && session==0)
+        if (Arrays.asList(CMD_SET_WITHOUT_SELECT).contains(stmt_head.toLowerCase()) && session != -1)
         {
             try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)) {
                 db.getDatabase().databaseLogger.writeLog(statement);
@@ -110,6 +110,7 @@ public class SQLHandler {
             QueryResult result = new QueryResult(message);
             ArrayList<QueryResult> results = new ArrayList<>();
             results.add(result);
+            System.out.println(message);
             return results;
         }
     }
