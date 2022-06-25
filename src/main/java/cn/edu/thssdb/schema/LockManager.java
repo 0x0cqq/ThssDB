@@ -66,7 +66,7 @@ public class LockManager {
         ArrayList<ReentrantReadWriteLock.WriteLock> sessionLockList = writeLockList.get(session);
         for(ReentrantReadWriteLock.WriteLock lock : sessionLockList){
             lock.unlock();
-            System.out.println("release write lock from lock manager" + lock.toString());
+            // System.out.println("release write lock from lock manager" + lock.toString());
         }
         sessionLockList.clear();
         writeLockList.put(session, sessionLockList);
