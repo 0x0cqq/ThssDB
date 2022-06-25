@@ -72,6 +72,8 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         if (ctx.select_stmt() != null) return visitSelect_stmt(ctx.select_stmt());
         if (ctx.quit_stmt() != null) return new QueryResult(visitQuit_stmt(ctx.quit_stmt()));
         if (ctx.show_meta_stmt()!=null) return new QueryResult(visitShow_meta_stmt(ctx.show_meta_stmt()));
+        if (ctx.show_table_stmt()!=null) return new QueryResult(visitShow_table_stmt(ctx.show_table_stmt()));
+        if (ctx.show_db_stmt()!=null) return new QueryResult(visitShow_db_stmt(ctx.show_db_stmt()));
         return null;
     }
 
@@ -346,7 +348,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
 
     //? Write by musky
     /**
-     * TODO
+     * Finished and Tested
      表格项删除
      */
     @Override
@@ -463,7 +465,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     }
 
     /**
-     * TODO
+     * Finished and Tested
      表格项查询
      SELECT tableName1.AttrName1, tableName1.AttrName2…, tableName2.AttrName1, tableName2.AttrName2,…
      FROM  tableName1 [JOIN tableName2 [ON  tableName1.attrName1 = tableName2.attrName2]]
@@ -606,7 +608,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     /**
      * Finished and Tested
      *
-     展示表 SHOW TABLE tableName
+     * 展示表(元数据) SHOW TABLE tableName
      */
     @Override
     public String visitShow_meta_stmt(SQLParser.Show_meta_stmtContext ctx){
@@ -617,6 +619,34 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
             String tableName = ctx.table_name().getText();
             Table table = manager.currentDatabase.get(tableName);
             return table.toString();
+        }
+        catch(Exception e){
+            return e.getMessage();
+        }
+    }
+    /**
+     *
+     * 展示数据库中的所有表
+     * SHOW DATABASE database_name
+     */
+    @Override
+    public String visitShow_table_stmt(SQLParser.Show_table_stmtContext ctx){
+        try{
+
+            return null;
+        }
+        catch(Exception e){
+            return e.getMessage();
+        }
+    }
+    /**
+     *
+     * 展示数据库 SHOW DATABASES
+     */
+    @Override
+    public String visitShow_db_stmt(SQLParser.Show_db_stmtContext ctx){
+        try{
+            return null;
         }
         catch(Exception e){
             return e.getMessage();

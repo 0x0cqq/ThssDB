@@ -441,3 +441,86 @@ begin transaction
 commit
 begin transaction
 commit
+begin transaction
+insert into branch values('WashingTownBank','WashingTon')
+commit
+begin transaction
+insert into branch values('LyManBranch','NewYork')
+commit
+begin transaction
+insert into branch values('HongKongBranch','HongKong')
+commit
+begin transaction
+commit
+begin transaction
+delete from branch where city='WashingTon'
+commit
+begin transaction
+insert into branch values('WashingtonBranch','WashingTon')
+commit
+begin transaction
+insert into account(1,'Alice',1500.5)
+commit
+begin transaction
+insert into account values (1,'Alice',1500.5)
+commit
+begin transaction
+insert into account(1,'Alice','WashingtonBranch',1500.5)
+commit
+begin transaction
+insert into account values(1,'Alice','WashingtonBranch',1500.5)
+commit
+begin transaction
+insert into account values(2,'Alice','LymanBranch',2000)
+commit
+begin transaction
+insert into account values(3,'Bob','WashingTonBranch',3500)
+commit
+begin transaction
+commit
+begin transaction
+insert into table customer values(1,'Bob')
+commit
+begin transaction
+insert into table customer values(2,'Alice')
+commit
+begin transaction
+insert into table customer values (3,'Carol')
+commit
+begin transaction
+insert into customer values(1,'Bob')
+commit
+begin transaction
+insert into customer values(2,'Alice')
+commit
+begin transaction
+insert into customer values(3,'Carol')
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+update account set balance=2500 where id=2
+commit
+begin transaction
+update account set balance=2500.5 where id=2
+commit
+begin transaction
+commit
+begin transaction
+commit
+begin transaction
+commit
