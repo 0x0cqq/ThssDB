@@ -16,7 +16,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class Manager {
   private HashMap<String, Database> databases;
   private static ReentrantReadWriteLock lock = new ReentrantReadWriteLock(); // 用来保护 Manager 的文件
-  private Database currentDatabase;
+  private String currentDatabaseName;
   public ArrayList<Long> currentSessions;
   public ArrayList<Long> waitSessions;
   public static SQLHandler sqlHandler;
@@ -27,7 +27,7 @@ public class Manager {
 
   public Manager() {
     databases = new HashMap<>();
-    currentDatabase = null;
+    currentDatabaseName = null;
     sqlHandler = new SQLHandler(this);
 //    x_lockDict = new HashMap<>();
     currentSessions = new ArrayList<>();
@@ -42,10 +42,10 @@ public class Manager {
       lock.writeLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
-      Database database = databases.get(databaseName);
-      database.dropDatabase();
+      try(Database.DatabaseHandler db = get(databaseName, false, true)) {
+        db.getDatabase().dropDatabase();
+      }
       databases.remove(databaseName);
-
     } finally {
       lock.writeLock().unlock();
     }
@@ -56,7 +56,7 @@ public class Manager {
       lock.writeLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
-      currentDatabase = databases.get(databaseName);
+      currentDatabaseName = databaseName;
     } finally {
       lock.writeLock().unlock();
     }
@@ -68,47 +68,46 @@ public class Manager {
 
     }
   }
-
-  public String getCurrentDatabaseName(){
-    if(currentDatabase == null) {
-      throw new DatabaseNotExistException("current database not exists\n");
-    }
-    return currentDatabase.getDatabaseName();
-  }
-
   // utils:
 
   // quit current manager
   public void quit() {
     try {
       lock.writeLock().lock();
-      for (Database database : databases.values())
-        database.quit();
+      for (String databaseName : databases.keySet()){
+        try(Database.DatabaseHandler db = get(databaseName, false, true)){
+          db.getDatabase().quit();
+        }
+      }
       persist();
       databases.clear();
-      currentDatabase = null;
+      currentDatabaseName = null;
     } finally {
       lock.writeLock().unlock();
     }
   }
 
-  public Database.DatabaseHandler getCurrentDatabase() {
+  public Database.DatabaseHandler getCurrentDatabase(Boolean read, Boolean write) {
     try {
       lock.readLock().lock();
-      if (currentDatabase == null)
+      if (currentDatabaseName == null)
         throw new DatabaseNotExistException("current Database");
-      return  currentDatabase.getReadHandler();
+      return  get(currentDatabaseName,read,write);
     } finally {
       lock.readLock().unlock();
     }
   }
 
-  public Database.DatabaseHandler get(String databaseName) {
+
+  public Database.DatabaseHandler get(String databaseName, Boolean read, Boolean write) {
     try {
       lock.readLock().lock();
       if (!databases.containsKey(databaseName))
         throw new DatabaseNotExistException(databaseName);
-      return  databases.get(databaseName).getReadHandler();
+      if(read)
+        return  databases.get(databaseName).getReadHandler();
+      else // write
+        return databases.get(databaseName).getWriteHandler();
     } finally {
       lock.readLock().unlock();
     }
@@ -132,10 +131,10 @@ public class Manager {
       lock.writeLock().lock();
       if (!databases.containsKey(databaseName))
         databases.put(databaseName, new Database(databaseName));
-      if (currentDatabase == null) {
+      if (currentDatabaseName == null) {
         if (!databases.containsKey(databaseName))
           throw new DatabaseNotExistException(databaseName);
-        currentDatabase = databases.get(databaseName);
+        currentDatabaseName = databaseName;
       }
     } finally {
       lock.writeLock().unlock();
@@ -158,8 +157,9 @@ public class Manager {
   public void persistDatabase(String databaseName) {
     try {
       lock.readLock().lock();
-      Database database = databases.get(databaseName);
-      database.quit();
+      try(Database.DatabaseHandler db = get(databaseName,true, false)){
+        db.getDatabase().quit();
+      }
       persist();
     } finally {
       lock.readLock().unlock();
@@ -177,11 +177,13 @@ public class Manager {
       while ((line = bufferedReader.readLine()) != null) {
         System.out.println("recover database name: " + line);
         createDatabaseIfNotExists(line);
-        Database database = this.databases.get(line);
-        // recover database
-        database.recover();
-        // use log to recover database(For those that is not on disk
-        logRecover(database);
+        try (Database.DatabaseHandler db = get(line, false, true)) {
+          Database database = db.getDatabase();
+          // recover database
+          database.recover();
+          // use log to recover database(For those that is not on disk
+          logRecover(database);
+        }
       }
       bufferedReader.close();
       reader.close();
@@ -193,7 +195,7 @@ public class Manager {
 
   // use sql handler to re-execute those statements.
   public void logRecover(Database database) {
-    this.currentDatabase = database;
+    this.currentDatabaseName = database.getDatabaseName();
     ArrayList<String> logs = database.databaseLogger.readLog();
     for(String statement : logs) {
       try {

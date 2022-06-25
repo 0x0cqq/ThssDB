@@ -30,7 +30,7 @@ public class SQLHandler {
         String stmt_head = statement.split("\\s+")[0];
         if (Arrays.asList(CMD_SET_WITHOUT_SELECT).contains(stmt_head.toLowerCase()) && session==0)
         {
-            try(Database.DatabaseHandler db = manager.getCurrentDatabase()) {
+            try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)) {
                 db.getDatabase().databaseLogger.writeLog(statement);
             }
             catch (Exception ignored) {
@@ -62,7 +62,7 @@ public class SQLHandler {
             ArrayList<QueryResult> queryResults = new ArrayList<QueryResult>();
             try{
                 if (manager.currentSessions.contains(session)){ // 在一个 transaction 当中
-                    try(Database.DatabaseHandler db = manager.getCurrentDatabase()) {
+                    try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)) {
                         String databaseName = db.getDatabase().getDatabaseName();
                         manager.currentSessions.remove(session);
                         // 释放这个 Session 拥有的所有写锁（？）这是个啥？Read Commited 隔离级别吗？
@@ -79,7 +79,7 @@ public class SQLHandler {
                         File file = new File(databaseLogFilename);
                         if (file.exists() && file.isFile() && file.length() > 50000) {
                             System.out.println("Clear database log");
-                            manager.get(databaseName).getDatabase().databaseLogger.clearLog();
+                            manager.get(databaseName,false,true).getDatabase().databaseLogger.clearLog();
                             manager.persistDatabase(databaseName);
                         }
                     }

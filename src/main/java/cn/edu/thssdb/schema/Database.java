@@ -22,41 +22,43 @@ public class Database {
   private ReentrantReadWriteLock lock;
 
   public class DatabaseHandler implements AutoCloseable{
+    private Database database;
     private Boolean haveReadLock;
     private Boolean haveWriteLock;
-    public DatabaseHandler(Boolean read, Boolean write){
+    public DatabaseHandler(Database database, Boolean read, Boolean write){
+      this.database = database;
       this.haveReadLock = read;
       this.haveWriteLock = write;
       if(read){
-        lock.readLock().lock();
+        this.database.lock.readLock().lock();
       }
       if(write) {
-        lock.writeLock().lock();
+        this.database.lock.writeLock().lock();
       }
     }
 
     public Database getDatabase() {
-      return Database.this;
+      return this.database;
     }
     // 当使用 try-with-resources 的时候
     @Override
     public void close() {
       if(haveWriteLock) {
-        lock.writeLock().unlock();
+        this.database.lock.writeLock().unlock();
         haveWriteLock = false;
       }
       if(haveReadLock) {
-        lock.readLock().unlock();
+        this.database.lock.readLock().unlock();
         haveReadLock = false;
       }
     }
   }
 
   public DatabaseHandler getReadHandler() {
-    return new DatabaseHandler(true, false);
+    return new DatabaseHandler(this, true, false);
   }
   public DatabaseHandler getWriteHandler() {
-    return new DatabaseHandler(true, false);
+    return new DatabaseHandler(this, true, false);
   }
 
   public Database(String databaseName) {
@@ -100,56 +102,35 @@ public class Database {
   // 创建表。
   // 需要拥有 Database 写的权限
   public void create(String tableName, Column[] columns) {
-    try {
-      // 获取写锁
-      this.lock.writeLock().lock();
-      if (this.tableMap.containsKey(tableName))
-        throw new DuplicateTableException(tableName);
-      Table table = new Table(this.databaseName, tableName, columns);
-      this.tableMap.put(tableName, table);
-      this.persist();
-    } finally {
-      // 丢弃写锁
-      this.lock.writeLock().lock();
-    }
+    if (this.tableMap.containsKey(tableName))
+      throw new DuplicateTableException(tableName);
+    Table table = new Table(this.databaseName, tableName, columns);
+    this.tableMap.put(tableName, table);
+    this.persist();
   }
 
   // 根据 Table 的名称获取 Table 变量
   // 需要拥有读的锁。
   public Table.TableHandler get(String tableName) {
-    try {
-      // 获取读锁
-      this.lock.readLock().lock();
-      if (!this.tableMap.containsKey(tableName))
-        throw new TableNotExistException(tableName);
-      return this.tableMap.get(tableName).getTableHandler();
-    } finally {
-      // 释放读锁
-      this.lock.readLock().unlock();
-    }
+    if (!this.tableMap.containsKey(tableName))
+      throw new TableNotExistException(tableName);
+    return this.tableMap.get(tableName).getTableHandler();
   }
 
   // 根据 TableName 丢弃一张表
   public void drop(Long session, String tableName) {
-    try {
-      // 需要有数据库的写锁
-      this.lock.writeLock().lock();
-      if (!this.tableMap.containsKey(tableName))
-        throw new TableNotExistException(tableName);
-      try(Table.TableHandler tb = this.get(tableName)) {
-        Table table = tb.getTable();
-        String filename = table.getTableMetaPath();
-        File file = new File(filename);
-        if (file.isFile() && !file.delete())
-          throw new FileIOException(tableName + " _meta  when drop a table in database");
-        tableLockManager.getWriteLock(session, tb);
-        table.dropTable();
-      }
-      this.tableMap.remove(tableName);
-    } finally {
-      // 释放写锁
-      this.lock.writeLock().unlock();
+    if (!this.tableMap.containsKey(tableName))
+      throw new TableNotExistException(tableName);
+    try(Table.TableHandler tb = this.get(tableName)) {
+      Table table = tb.getTable();
+      String filename = table.getTableMetaPath();
+      File file = new File(filename);
+      if (file.isFile() && !file.delete())
+        throw new FileIOException(tableName + " _meta  when drop a table in database");
+      tableLockManager.getWriteLock(session, tb);
+      table.dropTable();
     }
+    this.tableMap.remove(tableName);
   }
 
   public void tableInsert(Long session, Table.TableHandler tb, Row row){
@@ -168,20 +149,15 @@ public class Database {
 
   // 丢弃整个数据库
   public void dropDatabase() {
-    try {
-      // 需要有数据库的写锁
-      this.lock.writeLock().lock();
-      for (Table table : this.tableMap.values()) {
-        File file = new File(table.getTableMetaPath());
-        if (file.isFile()&&!file.delete())
-          throw new FileIOException(this.databaseName + " _meta when drop the database");
-        table.dropTable();
+    // 需要有数据库的写锁
+    for (Table table : this.tableMap.values()) {
+      File file = new File(table.getTableMetaPath());
+      if (file.isFile()&&!file.delete())
+        throw new FileIOException(this.databaseName + " _meta when drop the database");
+      table.dropTable();
       }
-      this.tableMap.clear();
-      this.tableMap = null;
-    } finally {
-      this.lock.writeLock().unlock();
-    }
+    this.tableMap.clear();
+    this.tableMap = null;
   }
 
   public void recover() {
@@ -255,21 +231,18 @@ public class Database {
   public String getDatabaseName() { return this.databaseName; }
   public String getTableInfo(String tableName) { return get(tableName).toString(); }
   public String toString() {
-    if (this.tableMap.isEmpty()) return "{\n[DatabaseName: " + databaseName + "]\n" + Global.DATABASE_EMPTY + "}\n";
-    StringBuilder result = new StringBuilder("{\n[DatabaseName: " + databaseName + "]\n");
-    for (Table table : this.tableMap.values())
-      if (table != null)
-        result.append(table.toString());
-    return result.toString() + "}\n";
+      if (this.tableMap.isEmpty()) return "{\n[DatabaseName: " + databaseName + "]\n" + Global.DATABASE_EMPTY + "}\n";
+      StringBuilder result = new StringBuilder("{\n[DatabaseName: " + databaseName + "]\n");
+      for (String tableName : this.tableMap.keySet())
+        try(Table.TableHandler tb = get(tableName)) {
+          Table table = tb.getTable();
+          if (table != null)
+            result.append(table.toString());
+        }
+      return result.toString() + "}\n";
   }
 
-  public String getTableInfo(){
-    try{
-      this.lock.readLock().lock();
-      return this.toString();
-    } finally{
-      this.lock.readLock().unlock();
-    }
+  public String getTableInfo() {
+    return this.toString();
   }
-
 }

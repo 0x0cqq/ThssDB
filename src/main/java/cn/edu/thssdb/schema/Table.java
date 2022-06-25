@@ -22,44 +22,46 @@ public class Table implements Iterable<Row> {
   private int primaryIndex;
 
   public class TableHandler implements AutoCloseable {
+    private Table table;
     private Boolean haveReadLock;
     private Boolean haveWriteLock;
-    public TableHandler(Boolean read, Boolean write){
+    public TableHandler(Table table, Boolean read, Boolean write){
+      this.table = table;
       this.haveReadLock = read;
       this.haveWriteLock = write;
       if(read){
-        lock.readLock().lock();
+        this.table.lock.readLock().lock();
       }
       if(write) {
-        lock.writeLock().lock();
+        this.table.lock.writeLock().lock();
       }
     }
     public Boolean setWriteLock() {
       if(this.haveReadLock){
-        lock.readLock().unlock();
+        this.table.lock.readLock().unlock();
         this.haveReadLock = false;
       }
       if(lock.isWriteLockedByCurrentThread()){
         return false;
       }
-      lock.writeLock().lock();
+      this.table.lock.writeLock().lock();
       this.haveWriteLock = true;
       return true;
     }
-    public Table getTable(){ return Table.this; }
+    public Table getTable(){ return this.table; }
     @Override
     public void close() {
       // 这里可以根据不同的隔离级别选择不同的 Close 方式
       // 目前只支持 Read Committed
-      if(haveReadLock) {
-        lock.readLock().unlock();
-        haveReadLock = false;
+      if(this.haveReadLock) {
+        this.table.lock.readLock().unlock();
+        this.haveReadLock = false;
       }
     }
   }
 
   public TableHandler getTableHandler() {
-    return new TableHandler(true, false);
+    return new TableHandler(this, true, false);
   }
 
 

@@ -1,8 +1,6 @@
 package cn.edu.thssdb.parser;
 
 
-// TODO: add logic for some important cases, refer to given implementations and SQLBaseVisitor.java for structures
-
 import cn.edu.thssdb.common.Global;
 import cn.edu.thssdb.exception.*;
 import cn.edu.thssdb.parser.item.*;
@@ -116,7 +114,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public String visitDrop_table_stmt(SQLParser.Drop_table_stmtContext ctx) {
-        try (Database.DatabaseHandler db = manager.getCurrentDatabase()) {
+        try (Database.DatabaseHandler db = manager.getCurrentDatabase(false,true)) {
             String tableName = ctx.table_name().getText().toLowerCase();
             db.getDatabase().drop(session, tableName);
         } catch(Exception e) {
@@ -180,7 +178,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
         //从ArrayList传到数组里
         Column[] columns = columnList.toArray(new Column[0]);
 
-        try (Database.DatabaseHandler db = manager.getCurrentDatabase()){
+        try (Database.DatabaseHandler db = manager.getCurrentDatabase(false, true)){
             db.getDatabase().create(tableName, columns); //建表
         }catch(Exception e){
             return e.getMessage();
@@ -201,7 +199,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public String visitInsert_stmt(SQLParser.Insert_stmtContext ctx) {
-        try(Database.DatabaseHandler db = manager.getCurrentDatabase()){
+        try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)){// 这里是跨级别的，不需要写锁
             String tableName = ctx.table_name().getText();
             try(Table.TableHandler tb = db.getDatabase().get(tableName)) {
                 Table table = tb.getTable();
@@ -346,7 +344,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public String visitDelete_stmt(SQLParser.Delete_stmtContext ctx) {
-        try(Database.DatabaseHandler db = manager.getCurrentDatabase()){
+        try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)){
             String tableName = ctx.table_name().getText().toLowerCase();
             try(Table.TableHandler tb = db.getDatabase().get(tableName)) {
                 Table table = tb.getTable();
@@ -398,7 +396,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public String visitUpdate_stmt(SQLParser.Update_stmtContext ctx) {
-        try(Database.DatabaseHandler db = manager.getCurrentDatabase()) {
+        try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)) {
             String tableName = ctx.table_name().getText();
             try(Table.TableHandler tb = db.getDatabase().get(tableName)) {
                 Table table = tb.getTable();
@@ -471,7 +469,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public QueryResult visitSelect_stmt(SQLParser.Select_stmtContext ctx) {
-        try(Database.DatabaseHandler db = manager.getCurrentDatabase()){
+        try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)){
             //按大作业说明，只有一个tableQuery,所以只要获取第一个就行了
             SQLParser.Table_queryContext tableQuery = ctx.table_query().get(0);
             String firstTableName = tableQuery.table_name(0).getText();
@@ -607,7 +605,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
      */
     @Override
     public String visitShow_meta_stmt(SQLParser.Show_meta_stmtContext ctx){
-        try(Database.DatabaseHandler db = manager.getCurrentDatabase()){
+        try(Database.DatabaseHandler db = manager.getCurrentDatabase(true, false)){
             String tableName = ctx.table_name().getText();
             try(Table.TableHandler tb = db.getDatabase().get(tableName)) {
                 Table table = tb.getTable();
@@ -626,7 +624,7 @@ public class ImpVisitor extends SQLBaseVisitor<Object> {
     @Override
     public String visitShow_table_stmt(SQLParser.Show_table_stmtContext ctx){
         String databaseName = ctx.database_name().getText();
-        try(Database.DatabaseHandler db = manager.get(databaseName)){
+        try(Database.DatabaseHandler db = manager.get(databaseName, true, false)){
             return db.getDatabase().getTableInfo();
         }
         catch(Exception e){
