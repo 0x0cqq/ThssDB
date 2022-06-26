@@ -59,7 +59,6 @@ public class IServiceHandler implements IService.Iface {
 
   @Override
   public DisconnetResp disconnect(DisconnetReq req) throws TException {
-    // TODO
     DisconnetResp resp = new DisconnetResp();
     resp.setStatus(new Status(Global.SUCCESS_CODE));
     return resp;

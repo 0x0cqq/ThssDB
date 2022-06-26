@@ -32,7 +32,6 @@ public class ConditionItem {
     }
 
     /**
-     * TODO: test
      * 判断某一行是否满足该条件
      *
      */

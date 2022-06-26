@@ -43,12 +43,10 @@ public class QueryResult {
   }
 
   public static Row combineRow(LinkedList<Row> rows) {
-    // TODO
     return null;
   }
 
   public Row generateQueryRecord(Row row) {
-    // TODO
     return null;
   }
 

@@ -31,8 +31,6 @@ import java.util.List;
  * This class "ImpVisit" is used to convert a tree rooted at e.g. "select_stmt"
  * into the collection of tuples inside the database.
  *
- * We give you a few examples to convert the tree, including create/drop/quit.
- * You need to finish the codes for parsing the other rooted trees marked TODO.
  */
 
 public class ImpVisitor extends SQLBaseVisitor<Object> {
